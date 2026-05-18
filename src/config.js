@@ -36,15 +36,15 @@ export const CONFIG = {
       tiempoMostrarSecuenciaMs: 2700,
     },
     // Estación 3 — Hipocampo
+    // Mecánica reescrita: Simon Says con 7 notas (Do Re Mi Fa Sol La Si).
+    // Cada ronda es una secuencia de N notas aleatorias de 1-7 que el jugador
+    // debe replicar clickeando o presionando las teclas 1-7. La primera
+    // reproducción se acompaña de luz visual; las repeticiones son sólo audio
+    // (Simon mixto).
     hipocampo: {
-      // Patrones más largos e irregulares (v1: 4/5/6 regulares).
-      // Cada array son los timings en ms desde el inicio de la ronda.
-      patrones: [
-        [0, 350, 700, 1250, 1600],                              // 5 golpes irregulares
-        [0, 300, 750, 1200, 1500, 1900, 2400],                   // 7 golpes
-        [0, 350, 650, 1100, 1450, 1800, 2300, 2700, 3200],       // 9 golpes
-      ],
-      toleranciaMs: 280, // ventana de tolerancia por golpe (v1: 320)
+      longitudesRonda: [3, 5, 7],     // notas por ronda — sube progresivamente
+      intervaloEntreNotasMs: 550,     // tiempo entre notas durante la escucha
+      duracionNotaMs: 450,            // cuánto suena cada nota
     },
     // Estación 4 — Parietal
     parietal: {
@@ -85,8 +85,7 @@ export const CONFIG = {
   // --------------------------------------------------------------------------
   // Estación 3 — Hipocampo (compatibilidad)
   // --------------------------------------------------------------------------
-  get rondasHipocampo() { return this.dificultad.hipocampo.patrones.map(p => p.length); },
-  get toleranciaTimingMs() { return this.dificultad.hipocampo.toleranciaMs; },
+  get rondasHipocampo() { return this.dificultad.hipocampo.longitudesRonda; },
 
   // --------------------------------------------------------------------------
   // Estación 4 — Lóbulo parietal (compatibilidad)
@@ -279,20 +278,35 @@ export const CONFIG = {
 
   // --------------------------------------------------------------------------
   // Pulsos de estrés / cortisol (Sección 5.3)
-  // Si tocan a la neurona la frenan unos segundos, sin daño ni vidas.
+  // Si tocan a la neurona la frenan unos segundos y le bajan una vida
+  // (sin reset; sólo desgasta — Sección 16 del spec).
   // --------------------------------------------------------------------------
   pulsosEstres: {
     radio: 14,
-    velocidad: 165,             // px/s — más ágiles que en v2 inicial
-    velocidadVariacion: 0.40,   // ± 40 % de variación por pulso
+    velocidad: 165,             // px/s
+    velocidadVariacion: 0.40,
     duracionStunMs: 1400,
     factorVelocidadStun: 0.25,
     cooldownColisionMs: 500,
-    // Wander: cada N ms cambian ligeramente de dirección. Hace los pulsos
-    // menos predecibles que un rebote lineal puro.
+    // Wander
     wanderIntervaloMinMs: 1400,
     wanderIntervaloMaxMs: 2800,
-    wanderAnguloMax: Math.PI / 3, // ± 60° por giro
+    wanderAnguloMax: Math.PI / 3,
+    // Velocidad mínima: si un pulso queda muy lento (atrapado en una esquina),
+    // se le da un empujón aleatorio para evitar "bugs visibles".
+    velocidadMinima: 70,
+  },
+
+  // --------------------------------------------------------------------------
+  // Vida del jugador
+  // 5 corazones. Cada colisión con cortisol baja uno. NO hay reset (decisión
+  // pedagógica, Sección 16). En cambio, cada corazón perdido suma efectos
+  // acumulativos (stun más largo, velocidad máxima reducida).
+  // --------------------------------------------------------------------------
+  vida: {
+    max: 5,
+    factorStunPorCorazonPerdido: 0.35,  // +35 % de stun por corazón faltante
+    factorVelocidadPorCorazonPerdido: 0.06, // -6 % de maxSpeed por corazón faltante (mínimo 0.7)
   },
 
   // --------------------------------------------------------------------------
@@ -362,9 +376,20 @@ export const CONFIG = {
     tension: 'assets/audio/tension.wav',
     resolution: 'assets/audio/resolution.wav',
     stingLogro: 'assets/audio/sting-logro.wav',
+    // Notas Do Re Mi Fa Sol La Si — usadas por la Estación 3 (Hipocampo)
+    note1: 'assets/audio/note-1.wav',
+    note2: 'assets/audio/note-2.wav',
+    note3: 'assets/audio/note-3.wav',
+    note4: 'assets/audio/note-4.wav',
+    note5: 'assets/audio/note-5.wav',
+    note6: 'assets/audio/note-6.wav',
+    note7: 'assets/audio/note-7.wav',
+    // Patrones rítmicos antiguos — ya no se usan en gameplay; se mantienen
+    // como referencia por si la cátedra prefiere volver a la mecánica v1.
     rhythm1: 'assets/audio/rhythm-1.wav',
     rhythm2: 'assets/audio/rhythm-2.wav',
     rhythm3: 'assets/audio/rhythm-3.wav',
+    // Emociones — Estación 1 (Amígdala)
     emotionCalma: 'assets/audio/emotion-calma.wav',
     emotionTension: 'assets/audio/emotion-tension.wav',
     emotionAlegria: 'assets/audio/emotion-alegria.wav',

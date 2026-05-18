@@ -222,6 +222,31 @@ Make-Rhythm @(0, 350, 650, 1100, 1450, 1800, 2300, 2700, 3200) "rhythm-3.wav"
 Write-Host "  - rhythm-3.wav (9 golpes)"
 
 # ----------------------------------------------------------------------------
+# note-1 ... note-7 — escala de C mayor (Do Re Mi Fa Sol La Si)
+# Estación 3 reemplazada por mecánica tipo Simon: el jugador escucha la
+# secuencia de notas y la replica clickeando los botones 1-7.
+# ----------------------------------------------------------------------------
+$notas = @(
+    @{ n = 1; f = $C4 },
+    @{ n = 2; f = $D4 },
+    @{ n = 3; f = $E4 },
+    @{ n = 4; f = $F4 },
+    @{ n = 5; f = $G4 },
+    @{ n = 6; f = $A4 },
+    @{ n = 7; f = $B4 }
+)
+foreach ($nota in $notas) {
+    $buf = [WavGen]::MakeBuffer(0.7)
+    # Nota base + un toque de armónico para textura
+    [WavGen]::AddNote($buf, 0.0, 0.65, $nota.f, 0.55, 0.01, 0.35)
+    [WavGen]::AddNote($buf, 0.0, 0.65, $nota.f * 2, 0.18, 0.01, 0.35)
+    [WavGen]::Normalize($buf, 0.85)
+    $file = "note-$($nota.n).wav"
+    [WavGen]::WriteWav((Out $file), $buf)
+    Write-Host "  - $file"
+}
+
+# ----------------------------------------------------------------------------
 # emotion-calma — ~4 s, acorde mayor sostenido y suave (C mayor, registro bajo)
 # ----------------------------------------------------------------------------
 $buf = [WavGen]::MakeBuffer(4.0)

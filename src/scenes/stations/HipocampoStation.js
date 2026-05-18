@@ -1,20 +1,29 @@
 // ============================================================================
 // Estación 3 — Hipocampo (Memoria)
-// Patrones rítmicos: el jugador escucha y reproduce con la barra espaciadora.
-// 3 rondas (4, 5, 6 golpes). Si falla una ronda, se repite esa ronda (no se
-// reinicia toda la estación).
+// Mecánica: Simon Says con notas musicales (Do Re Mi Fa Sol La Si = 1..7).
+// El juego reproduce una secuencia de N notas; cada nota suena y la primera
+// reproducción la acompaña una luz en el botón. El jugador replica la
+// secuencia clickeando los botones o pulsando las teclas 1-7.
 //
-// IMPORTANTE (Sección 16 del spec): no presentar estos sonidos como "ondas
-// alfa" ni "frecuencias del aprendizaje". Son patrones rítmicos, nada más.
+// 3 rondas: 3 → 5 → 7 notas. Si falla, se repite esa ronda (sin penalización).
+//
+// IMPORTANTE (Sección 16 del spec): NO presentar las notas como "ondas alfa"
+// ni "frecuencias del aprendizaje". Son notas musicales que se memorizan.
 // ============================================================================
 
 import { CONFIG } from '../../config.js';
+import { GameState } from '../../state.js';
 import { StationBase } from './StationBase.js';
 
-// Patrones por ronda — vienen de config.dificultad.hipocampo.patrones.
-// Los WAV rhythm-1/2/3 se regeneran para calzar con estos timings
-// (ver tools/generate-audio.ps1).
-const AUDIO_KEYS = ['rhythm1', 'rhythm2', 'rhythm3'];
+const NOTAS = [
+  { num: 1, key: 'note1', nombre: 'Do', color: 0xe06b6b },
+  { num: 2, key: 'note2', nombre: 'Re', color: 0xf2a93b },
+  { num: 3, key: 'note3', nombre: 'Mi', color: 0xffd54f },
+  { num: 4, key: 'note4', nombre: 'Fa', color: 0x4caf50 },
+  { num: 5, key: 'note5', nombre: 'Sol', color: 0x26a69a },
+  { num: 6, key: 'note6', nombre: 'La', color: 0x42a5f5 },
+  { num: 7, key: 'note7', nombre: 'Si', color: 0x7e57c2 },
+];
 
 export class HipocampoStation extends StationBase {
   constructor() {
@@ -22,23 +31,25 @@ export class HipocampoStation extends StationBase {
   }
 
   consignaTexto() {
-    return 'Vas a escuchar un patrón rítmico. Cuando termine, reproducilo presionando la barra espaciadora (o haciendo clic en el círculo) en el mismo ritmo. Si fallás una ronda, se repite. Son 3 rondas.';
+    return 'Vas a escuchar una secuencia de notas (Do, Re, Mi, Fa, Sol, La, Si = 1 a 7). Replicala clickeando los botones en el mismo orden, o usando las teclas 1-7 del teclado. La primera vez que suena, la nota se ilumina. Si pedís escucharla de nuevo, va sin luz. Son 3 rondas.';
   }
 
   construirContenido() {
     const L = CONFIG.layout;
-    this.patrones = CONFIG.dificultad.hipocampo.patrones;
-    this.rondas = this.patrones.map((p) => p.length); // [5, 7, 9] por ejemplo
-    this.rondaActual = 0;
+    this.cfg = CONFIG.dificultad.hipocampo;
+    this.rondaIdx = 0;
+    this.secuencia = [];          // secuencia objetivo de la ronda actual
+    this.entrada = [];            // notas que el jugador ya ingresó esta ronda
+    this.fase = 'inicio';         // inicio | escuchando | turno | evaluando | completo
+    this._reproduccionDeRonda = 0; // 0 = primera (con luz), >0 = repeticiones (audio only)
 
-    this.add.text(L.brainAreaW / 2, 80, 'Escuchá y reproducí el patrón', {
+    this.add.text(L.brainAreaW / 2, 76, 'Escuchá la secuencia y replicala', {
       fontFamily: 'sans-serif',
       fontSize: '15px',
       color: '#5F5E5A',
     }).setOrigin(0.5);
 
-    // Indicador de ronda
-    this.indicadorRonda = this.add.text(L.brainAreaW / 2, 130, '', {
+    this.indicadorRonda = this.add.text(L.brainAreaW / 2, 110, '', {
       fontFamily: 'sans-serif',
       fontSize: '13px',
       color: this.region.colorHex,
@@ -46,207 +57,217 @@ export class HipocampoStation extends StationBase {
       letterSpacing: 2,
     }).setOrigin(0.5);
 
-    // Visualizador de beats
-    this.zonaBeats = this.add.container(L.brainAreaW / 2, 220);
-
-    // Estado: "esperando" / "escuchando" / "reproduciendo" / "evaluando"
-    this.estado = 'inicio';
-    this.estadoTxt = this.add.text(L.brainAreaW / 2, 320, '', {
+    this.estadoTxt = this.add.text(L.brainAreaW / 2, 150, '', {
       fontFamily: 'sans-serif',
-      fontSize: '20px',
+      fontSize: '18px',
       color: '#1F3864',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    // Botón principal grande (también clickable como input rítmico)
-    this.botonGrande = this.add.circle(L.brainAreaW / 2, 470, 90, this.region.color, 0.25)
-      .setStrokeStyle(4, this.region.color, 1);
-    this.botonAro = this.add.circle(L.brainAreaW / 2, 470, 90, this.region.color, 0)
-      .setStrokeStyle(2, this.region.color, 0.4);
+    // Visualizador de avance: una fila de puntitos por cada nota de la ronda
+    this.barraAvance = this.add.container(L.brainAreaW / 2, 200);
 
-    this.botonGrande.setInteractive({ useHandCursor: true });
-    this.botonGrande.on('pointerdown', () => this._onTap());
-
-    this.add.text(L.brainAreaW / 2, 470, '●', {
-      fontFamily: 'sans-serif',
-      fontSize: '64px',
-      color: this.region.colorHex,
-    }).setOrigin(0.5);
-
-    this.add.text(L.brainAreaW / 2, 580, 'Barra espaciadora o clic', {
-      fontFamily: 'sans-serif',
-      fontSize: '13px',
-      color: '#5F5E5A',
-    }).setOrigin(0.5);
+    // 7 botones de notas (fila)
+    this._dibujarBotonesNotas(L.brainAreaW / 2, 360);
 
     // Botón "escuchar de nuevo"
-    const btnY = 630;
-    const btn = this.add.rectangle(L.brainAreaW / 2, btnY, 200, 32, 0xffffff, 1)
+    const btnY = 560;
+    const btn = this.add.rectangle(L.brainAreaW / 2, btnY, 220, 38, 0xffffff, 1)
       .setStrokeStyle(2, this.region.color, 1).setInteractive({ useHandCursor: true });
     this.add.text(L.brainAreaW / 2, btnY, 'Escuchar de nuevo', {
       fontFamily: 'sans-serif',
-      fontSize: '13px',
+      fontSize: '14px',
       fontStyle: 'bold',
       color: this.region.colorHex,
     }).setOrigin(0.5);
+    btn.on('pointerover', () => btn.setFillStyle(this.region.fondoSuave, 1));
+    btn.on('pointerout', () => btn.setFillStyle(0xffffff, 1));
     btn.on('pointerdown', () => {
-      if (this.estado === 'escuchando' || this.estado === 'evaluando') return;
-      this._reproducirRondaActual();
+      if (this.fase === 'escuchando' || this.fase === 'evaluando') return;
+      this._reproducirSecuencia(false /* sin luz */);
     });
 
-    // Tecla espacio
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.spaceKey.on('down', () => this._onTap());
+    // Teclas 1-7
+    this.input.keyboard.on('keydown', (e) => {
+      const n = parseInt(e.key, 10);
+      if (Number.isFinite(n) && n >= 1 && n <= 7) this._onNotaClick(n);
+    });
 
-    // Arrancar primera ronda
-    this.time.delayedCall(800, () => this._iniciarRonda(0));
+    this.time.delayedCall(700, () => this._iniciarRonda(0));
+  }
+
+  // --------------------------------------------------------------------------
+  // Botones de notas
+  // --------------------------------------------------------------------------
+  _dibujarBotonesNotas(cx, cy) {
+    const btnW = 78, btnH = 110, gap = 12;
+    const totalW = NOTAS.length * btnW + (NOTAS.length - 1) * gap;
+    const startX = cx - totalW / 2;
+    this.botonesNotas = [];
+    for (let i = 0; i < NOTAS.length; i++) {
+      const n = NOTAS[i];
+      const bx = startX + i * (btnW + gap) + btnW / 2;
+      const by = cy;
+      const bg = this.add.rectangle(bx, by, btnW, btnH, n.color, 0.85)
+        .setStrokeStyle(3, 0x1f3864, 0.6);
+      const num = this.add.text(bx, by - 20, String(n.num), {
+        fontFamily: 'sans-serif',
+        fontSize: '34px',
+        fontStyle: 'bold',
+        color: '#FFFFFF',
+      }).setOrigin(0.5);
+      const nom = this.add.text(bx, by + 28, n.nombre, {
+        fontFamily: 'sans-serif',
+        fontSize: '15px',
+        color: '#FFFFFF',
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+      bg.setInteractive({ useHandCursor: true });
+      bg.on('pointerdown', () => this._onNotaClick(n.num));
+      bg.on('pointerover', () => bg.setStrokeStyle(3, 0xfbfaf7, 1));
+      bg.on('pointerout', () => bg.setStrokeStyle(3, 0x1f3864, 0.6));
+      this.botonesNotas.push({ n, bg, num, nom });
+    }
+  }
+
+  _iluminarBoton(num, dur = 380) {
+    const b = this.botonesNotas[num - 1];
+    if (!b) return;
+    b.bg.setFillStyle(0xffffff, 1);
+    b.num.setColor(NOTAS[num - 1].colorHex || '#1F3864');
+    // brillo
+    this.tweens.add({
+      targets: b.bg, scale: { from: 1, to: 1.08 }, duration: dur / 2, yoyo: true,
+    });
+    this.time.delayedCall(dur, () => {
+      if (b.bg && b.bg.scene) {
+        b.bg.setFillStyle(NOTAS[num - 1].color, 0.85);
+        b.num.setColor('#FFFFFF');
+      }
+    });
   }
 
   // --------------------------------------------------------------------------
   // Flujo de rondas
   // --------------------------------------------------------------------------
   _iniciarRonda(idx) {
-    this.rondaActual = idx;
-    const golpes = this.rondas[idx];
-    this.indicadorRonda.setText(`RONDA ${idx + 1} DE ${this.rondas.length}  ·  ${golpes} GOLPES`);
-    this._dibujarBeats(golpes);
-    this._reproducirRondaActual();
+    this.rondaIdx = idx;
+    const N = this.cfg.longitudesRonda[idx];
+    // Generar secuencia aleatoria
+    this.secuencia = [];
+    for (let i = 0; i < N; i++) this.secuencia.push(Phaser.Math.Between(1, 7));
+    this.entrada = [];
+    this._reproduccionDeRonda = 0;
+
+    this.indicadorRonda.setText(`RONDA ${idx + 1} DE ${this.cfg.longitudesRonda.length}  ·  ${N} NOTAS`);
+    this._dibujarBarraAvance(N);
+    this._reproducirSecuencia(true /* con luz */);
   }
 
-  _reproducirRondaActual() {
-    const patron = this.patrones[this.rondaActual];
-    this.estado = 'escuchando';
-    this.estadoTxt.setText('Escuchá…');
-    this._iluminarBeats(false);
-
-    // Reproducir audio (si está disponible)
-    if (this.sm) this.sm.playOneShot(AUDIO_KEYS[this.rondaActual], CONFIG.audio.volumenRitmo);
-
-    // Visualizador sincronizado con el patrón
-    patron.forEach((t, i) => {
-      this.time.delayedCall(t, () => this._flashBeatVisual(i));
-    });
-
-    // Cuando termina la escucha, abrir ventana de reproducción
-    const fin = patron[patron.length - 1] + 600;
-    this.time.delayedCall(fin, () => {
-      this.estado = 'reproduciendo';
-      this.estadoTxt.setText('Reproducí el ritmo');
-      this.tapsRegistrados = [];
-      this.t0Tap = null;
-      this._iluminarBeats(false);
-      this._latePulse();
-    });
-  }
-
-  _latePulse() {
-    // Hace pulsar el botón grande para invitar a tocar
-    this.tweens.killTweensOf(this.botonAro);
-    this.botonAro.setScale(1).setAlpha(0.6);
-    this.tweens.add({
-      targets: this.botonAro,
-      scale: 1.25,
-      alpha: 0,
-      duration: 900,
-      repeat: -1,
-      ease: 'Cubic.easeOut',
-    });
-  }
-
-  _stopLatePulse() {
-    this.tweens.killTweensOf(this.botonAro);
-    this.botonAro.setScale(1).setAlpha(0);
-  }
-
-  _onTap() {
-    if (this.estado !== 'reproduciendo') return;
-    this.marcarProgreso();
-
-    const patron = this.patrones[this.rondaActual];
-
-    const now = this.time.now;
-    if (this.t0Tap === null) this.t0Tap = now;
-    const tRel = now - this.t0Tap;
-    this.tapsRegistrados.push(tRel);
-    const idx = this.tapsRegistrados.length - 1;
-
-    // Feedback visual del tap
-    this._flashBeatVisual(idx);
-    this.tweens.add({
-      targets: this.botonGrande,
-      scale: { from: 1.1, to: 1 },
-      duration: 180,
-      ease: 'Cubic.easeOut',
-    });
-
-    if (this.tapsRegistrados.length >= patron.length) {
-      this._stopLatePulse();
-      this._evaluar();
-    }
-  }
-
-  _evaluar() {
-    this.estado = 'evaluando';
-    const patron = this.patrones[this.rondaActual];
-    const tol = CONFIG.toleranciaTimingMs;
-
-    let ok = true;
-    for (let i = 1; i < patron.length; i++) { // el primer tap define t0
-      const esperadoIntervalo = patron[i] - patron[0];
-      const realIntervalo = this.tapsRegistrados[i] - this.tapsRegistrados[0];
-      if (Math.abs(esperadoIntervalo - realIntervalo) > tol) {
-        ok = false;
-        break;
-      }
-    }
-
-    if (ok) {
-      this.estadoTxt.setText('¡Bien!');
-      this.estadoTxt.setColor(this.region.colorHex);
-      this.time.delayedCall(900, () => {
-        if (this.rondaActual + 1 >= this.rondas.length) {
-          this.resolverEstacion();
-        } else {
-          this._iniciarRonda(this.rondaActual + 1);
-        }
-      });
-    } else {
-      this.estadoTxt.setText('No coincidió. Probemos de nuevo esta ronda.');
-      this.estadoTxt.setColor('#5F5E5A');
-      this.time.delayedCall(1200, () => {
-        this.estadoTxt.setText('');
-        this._reproducirRondaActual();
-      });
-    }
-  }
-
-  // --------------------------------------------------------------------------
-  // Visualizador de beats
-  // --------------------------------------------------------------------------
-  _dibujarBeats(n) {
-    this.zonaBeats.removeAll(true);
-    const sz = 26, gap = 14;
+  _dibujarBarraAvance(n) {
+    this.barraAvance.removeAll(true);
+    const sz = 14, gap = 8;
     const totalW = n * sz + (n - 1) * gap;
     const startX = -totalW / 2;
-    this._beatCircles = [];
+    this._avancePuntos = [];
     for (let i = 0; i < n; i++) {
       const x = startX + i * (sz + gap) + sz / 2;
-      const c = this.add.circle(x, 0, sz / 2, this.region.color, 0.2).setStrokeStyle(2, this.region.color, 1);
-      this.zonaBeats.add(c);
-      this._beatCircles.push(c);
+      const c = this.add.circle(x, 0, sz / 2, this.region.color, 0.2)
+        .setStrokeStyle(2, this.region.color, 0.6);
+      this.barraAvance.add(c);
+      this._avancePuntos.push(c);
     }
   }
 
-  _flashBeatVisual(idx) {
-    const c = this._beatCircles[idx];
+  _marcarAvance(idx, ok) {
+    const c = this._avancePuntos && this._avancePuntos[idx];
     if (!c) return;
-    c.setFillStyle(this.region.color, 1);
-    this.time.delayedCall(220, () => c.setFillStyle(this.region.color, 0.2));
+    if (ok) c.setFillStyle(0x0f6e56, 1).setStrokeStyle(2, 0xfbfaf7, 1);
+    else c.setFillStyle(0xc14a4a, 1).setStrokeStyle(2, 0xfbfaf7, 1);
   }
 
-  _iluminarBeats(on) {
-    for (const c of (this._beatCircles || [])) {
-      c.setFillStyle(this.region.color, on ? 1 : 0.2);
+  _resetAvance() {
+    for (const c of (this._avancePuntos || [])) {
+      c.setFillStyle(this.region.color, 0.2).setStrokeStyle(2, this.region.color, 0.6);
+    }
+  }
+
+  _reproducirSecuencia(conLuz) {
+    this.fase = 'escuchando';
+    this.estadoTxt.setText('Escuchá…');
+    this._inhabilitarBotones(true);
+    this._resetAvance();
+
+    const dt = this.cfg.intervaloEntreNotasMs;
+    const dur = this.cfg.duracionNotaMs;
+
+    this.secuencia.forEach((num, i) => {
+      this.time.delayedCall(i * dt, () => {
+        if (this.sm) this.sm.playOneShot(`note${num}`, CONFIG.audio.volumenRitmo);
+        if (conLuz) this._iluminarBoton(num, dur);
+      });
+    });
+
+    const finMs = this.secuencia.length * dt + dur + 200;
+    this.time.delayedCall(finMs, () => {
+      this.fase = 'turno';
+      this.estadoTxt.setText('Tu turno');
+      this._inhabilitarBotones(false);
+      this.entrada = [];
+      this._reproduccionDeRonda++;
+    });
+  }
+
+  _inhabilitarBotones(disable) {
+    for (const b of (this.botonesNotas || [])) {
+      if (disable) b.bg.disableInteractive();
+      else b.bg.setInteractive({ useHandCursor: true });
+      b.bg.setAlpha(disable ? 0.55 : 1);
+    }
+  }
+
+  _onNotaClick(num) {
+    if (this.fase !== 'turno') return;
+    if (num < 1 || num > 7) return;
+    this.marcarProgreso();
+
+    // Reproducir la nota + iluminar
+    if (this.sm) this.sm.playOneShot(`note${num}`, CONFIG.audio.volumenRitmo);
+    this._iluminarBoton(num, 280);
+
+    const idx = this.entrada.length;
+    const esperado = this.secuencia[idx];
+
+    if (num === esperado) {
+      this.entrada.push(num);
+      this._marcarAvance(idx, true);
+      if (this.entrada.length >= this.secuencia.length) {
+        // Ronda completa
+        this.fase = 'evaluando';
+        this._inhabilitarBotones(true);
+        this.estadoTxt.setText('¡Bien!');
+        this.estadoTxt.setColor(this.region.colorHex);
+        this.time.delayedCall(900, () => {
+          if (this.rondaIdx + 1 >= this.cfg.longitudesRonda.length) {
+            this.resolverEstacion();
+          } else {
+            this.estadoTxt.setColor('#1F3864');
+            this._iniciarRonda(this.rondaIdx + 1);
+          }
+        });
+      }
+    } else {
+      // Nota incorrecta: reset de entrada de esta ronda, sin avanzar
+      this._marcarAvance(idx, false);
+      this.estadoTxt.setText('No coincide. Probemos otra vez.');
+      this.estadoTxt.setColor('#993556');
+      GameState.errores.hipocampo = (GameState.errores.hipocampo || 0) + 1;
+      this.time.delayedCall(900, () => {
+        this.entrada = [];
+        this._resetAvance();
+        this.estadoTxt.setText('Tu turno');
+        this.estadoTxt.setColor('#1F3864');
+      });
     }
   }
 }

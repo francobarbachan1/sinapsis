@@ -30,25 +30,35 @@ export class HudScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
 
     // Cronómetro
-    this.add.text(L.hudX + L.hudW / 2, 70, 'TIEMPO', {
+    this.add.text(L.hudX + L.hudW / 2, 58, 'TIEMPO', {
       fontFamily: 'sans-serif',
       fontSize: '12px',
       color: '#A8B8D8',
       fontStyle: 'bold',
     }).setOrigin(0.5, 0);
 
-    this.timerText = this.add.text(L.hudX + L.hudW / 2, 92, '15:00', {
+    this.timerText = this.add.text(L.hudX + L.hudW / 2, 78, '15:00', {
       fontFamily: 'monospace',
-      fontSize: '38px',
+      fontSize: '34px',
       fontStyle: 'bold',
       color: '#FBFAF7',
     }).setOrigin(0.5, 0);
 
+    // Vida
+    this.add.text(L.hudX + 24, 128, 'VIDA', {
+      fontFamily: 'sans-serif',
+      fontSize: '11px',
+      color: '#A8B8D8',
+      fontStyle: 'bold',
+      letterSpacing: 2,
+    });
+    this._dibujarVida(L.hudX + 24, 146);
+
     // Separador
-    this.add.rectangle(L.hudX + 24, 158, L.hudW - 48, 1, 0xfbfaf7, 0.2).setOrigin(0, 0);
+    this.add.rectangle(L.hudX + 24, 175, L.hudW - 48, 1, 0xfbfaf7, 0.2).setOrigin(0, 0);
 
     // Etiqueta pista
-    this.pistaLabel = this.add.text(L.hudX + 24, 172, 'PISTA 1 DE 6', {
+    this.pistaLabel = this.add.text(L.hudX + 24, 188, 'PISTA 1 DE 6', {
       fontFamily: 'sans-serif',
       fontSize: '12px',
       color: '#A8B8D8',
@@ -56,9 +66,9 @@ export class HudScene extends Phaser.Scene {
     });
 
     // Cuerpo de la pista
-    this.pistaText = this.add.text(L.hudX + 24, 196, '', {
+    this.pistaText = this.add.text(L.hudX + 24, 212, '', {
       fontFamily: 'sans-serif',
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#FBFAF7',
       wordWrap: { width: L.hudW - 48 },
       lineSpacing: 4,
@@ -123,18 +133,21 @@ export class HudScene extends Phaser.Scene {
     const onReanudar = () => { this._corre = true; };
     const onRefresh = () => this.refresh();
     const onSala = (id) => this._actualizarMinimapa(id);
+    const onVida = (v) => this._actualizarVida(v);
 
     this.game.events.off('sinapsis:regionResuelta');
     this.game.events.off('sinapsis:pausarTiempo');
     this.game.events.off('sinapsis:reanudarTiempo');
     this.game.events.off('sinapsis:refrescarHud');
     this.game.events.off('sinapsis:cambioSala');
+    this.game.events.off('sinapsis:vidaCambio');
 
     this.game.events.on('sinapsis:regionResuelta', onRegion);
     this.game.events.on('sinapsis:pausarTiempo', onPausa);
     this.game.events.on('sinapsis:reanudarTiempo', onReanudar);
     this.game.events.on('sinapsis:refrescarHud', onRefresh);
     this.game.events.on('sinapsis:cambioSala', onSala);
+    this.game.events.on('sinapsis:vidaCambio', onVida);
 
     this.events.once('shutdown', () => {
       this.game.events.off('sinapsis:regionResuelta', onRegion);
@@ -142,7 +155,68 @@ export class HudScene extends Phaser.Scene {
       this.game.events.off('sinapsis:reanudarTiempo', onReanudar);
       this.game.events.off('sinapsis:refrescarHud', onRefresh);
       this.game.events.off('sinapsis:cambioSala', onSala);
+      this.game.events.off('sinapsis:vidaCambio', onVida);
     });
+  }
+
+  // --------------------------------------------------------------------------
+  // Barra de vida (corazones)
+  // --------------------------------------------------------------------------
+  _dibujarVida(x, y) {
+    const max = GameState.vidaMax || 5;
+    const slotW = 22, gap = 4;
+    this.vidaSlots = [];
+    for (let i = 0; i < max; i++) {
+      const cx = x + i * (slotW + gap) + slotW / 2;
+      const cy = y + slotW / 2;
+      const heart = this.add.graphics();
+      this._pintarCorazon(heart, cx, cy, i < GameState.vida);
+      this.vidaSlots.push({ heart, cx, cy });
+    }
+  }
+
+  _pintarCorazon(g, cx, cy, lleno) {
+    g.clear();
+    const colorRelleno = lleno ? 0xff6480 : 0x3a4a6a;
+    const colorBorde = lleno ? 0xc94360 : 0x5a6a8a;
+    g.lineStyle(2, colorBorde, 1);
+    g.fillStyle(colorRelleno, lleno ? 1 : 0.4);
+    // Corazón aproximado: dos círculos superiores + triángulo inferior
+    const r = 6;
+    g.fillCircle(cx - r * 0.55, cy - r * 0.2, r);
+    g.fillCircle(cx + r * 0.55, cy - r * 0.2, r);
+    g.fillTriangle(
+      cx - r * 1.1, cy + r * 0.05,
+      cx + r * 1.1, cy + r * 0.05,
+      cx, cy + r * 1.35,
+    );
+    g.strokeCircle(cx - r * 0.55, cy - r * 0.2, r);
+    g.strokeCircle(cx + r * 0.55, cy - r * 0.2, r);
+    g.strokeTriangle(
+      cx - r * 1.1, cy + r * 0.05,
+      cx + r * 1.1, cy + r * 0.05,
+      cx, cy + r * 1.35,
+    );
+  }
+
+  _actualizarVida(v) {
+    if (!this.vidaSlots) return;
+    this.vidaSlots.forEach((slot, i) => {
+      this._pintarCorazon(slot.heart, slot.cx, slot.cy, i < v);
+    });
+    // Pequeño "tilt" si se perdió un corazón
+    const idx = v;
+    if (idx >= 0 && idx < this.vidaSlots.length) {
+      const lost = this.vidaSlots[idx];
+      if (lost) {
+        this.tweens.add({
+          targets: lost.heart,
+          scale: { from: 1.6, to: 1 },
+          alpha: { from: 0.4, to: 1 },
+          duration: 350, ease: 'Cubic.easeOut',
+        });
+      }
+    }
   }
 
   // --------------------------------------------------------------------------

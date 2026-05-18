@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { CONFIG } from '../../config.js';
+import { GameState } from '../../state.js';
 import { StationBase } from './StationBase.js';
 
 const DIRS = {
@@ -292,5 +293,6 @@ export class ParietalStation extends StationBase {
       });
     });
     this.mensaje.setText(`Chocaste contra ${contra}. Replanificá la ruta.`);
+    GameState.errores.parietal = (GameState.errores.parietal || 0) + 1;
   }
 }

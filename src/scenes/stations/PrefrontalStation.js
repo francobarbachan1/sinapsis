@@ -138,9 +138,9 @@ export class PrefrontalStation extends StationBase {
       });
     } else {
       this.mensaje.setText('Esa no es. Volvé a intentar.');
-      // Feedback breve y desbloqueo (sin penalización)
       bg.setFillStyle(0xf0e6e2, 1);
       this.time.delayedCall(700, () => bg.setFillStyle(0xffffff, 1));
+      GameState.errores.prefrontal = (GameState.errores.prefrontal || 0) + 1;
     }
   }
 

@@ -42,6 +42,9 @@ export class MapScene extends Phaser.Scene {
     // Grupos (la física se asigna por elemento; el group es solo contenedor)
     this.wallsGroup = this.add.group();
     this.pulsesGroup = this.physics.add.group();
+    // Bloqueadores de puerta: invisibles, sólo colisionan con pulsos para
+    // evitar que se escapen por los huecos. El avatar los ignora.
+    this.pulseDoorBlockersGroup = this.add.group();
     this.haloGroup = this.add.group();
     this._colliders = [];
 
@@ -140,6 +143,7 @@ export class MapScene extends Phaser.Scene {
     if (this.stationZone) { this.stationZone.destroy(); this.stationZone = null; }
     this.wallsGroup.clear(true, true);
     this.pulsesGroup.clear(true, true);
+    this.pulseDoorBlockersGroup.clear(true, true);
     this.haloGroup.clear(true, true);
 
     this.roomLayer = this.add.container(0, 0).setDepth(0);
@@ -175,6 +179,7 @@ export class MapScene extends Phaser.Scene {
     // Colisiones / overlaps (los referenciamos para poder destruirlos al recargar)
     this._colliders.push(this.physics.add.collider(this.avatar, this.wallsGroup));
     this._colliders.push(this.physics.add.collider(this.pulsesGroup, this.wallsGroup));
+    this._colliders.push(this.physics.add.collider(this.pulsesGroup, this.pulseDoorBlockersGroup));
     this._colliders.push(this.physics.add.overlap(this.avatar, this.pulsesGroup, this._onPulsoHit, null, this));
 
     // Notificar HUD que la sala cambió (para el minimapa)
@@ -388,6 +393,13 @@ export class MapScene extends Phaser.Scene {
       this._cambiarSala(destRoomId, lado.dir);
     }));
     this.doorsGroup.add(zone);
+
+    // Bloqueador de puerta para pulsos: rectángulo invisible que cubre el
+    // hueco. Sólo colisiona con pulsos (configurado en wallsGroup/blockers).
+    // El avatar lo atraviesa porque no participa de este collider.
+    const blocker = this.add.rectangle(dr.x, dr.y, dr.w, dr.h, 0x000000, 0);
+    this.physics.add.existing(blocker, true);
+    this.pulseDoorBlockersGroup.add(blocker);
   }
 
   _dibujarFlechaPuerta(dr, dir, color) {
@@ -490,21 +502,32 @@ export class MapScene extends Phaser.Scene {
 
   _onPulsoHit(avatar, pulso) {
     const P = CONFIG.pulsosEstres;
+    const V = CONFIG.vida;
     if (this.time.now - avatar.lastHitTime < P.cooldownColisionMs) return;
     avatar.lastHitTime = this.time.now;
-    avatar.stunUntil = this.time.now + P.duracionStunMs;
 
-    // Feedback visual: tintar avatar y empujar
+    // Vida: bajar un corazón. Nunca por debajo de 0.
+    GameState.colisionesCortisol = (GameState.colisionesCortisol || 0) + 1;
+    if (GameState.vida > 0) GameState.vida = Math.max(0, GameState.vida - 1);
+
+    // Stun se hace más largo a medida que perdemos vida.
+    const corazonesPerdidos = V.max - GameState.vida;
+    const stunMul = 1 + corazonesPerdidos * V.factorStunPorCorazonPerdido;
+    avatar.stunUntil = this.time.now + P.duracionStunMs * stunMul;
+
+    // Feedback visual: tintar avatar + shake
     this.avatar.setTint(0xff8c66);
-    this.time.delayedCall(P.duracionStunMs, () => this.avatar && this.avatar.clearTint());
-    // Pequeño shake de cámara
-    this.cameras.main.shake(120, 0.004);
+    this.time.delayedCall(P.duracionStunMs * stunMul, () => this.avatar && this.avatar.clearTint());
+    this.cameras.main.shake(140, 0.005);
 
-    // Empuje sutil en dirección opuesta al pulso
+    // Empuje en dirección opuesta
     const dx = avatar.x - pulso.x;
     const dy = avatar.y - pulso.y;
     const len = Math.hypot(dx, dy) || 1;
-    avatar.setVelocity((dx / len) * 80, (dy / len) * 80);
+    avatar.setVelocity((dx / len) * 90, (dy / len) * 90);
+
+    // Aviso al HUD para que actualice la barra de vida
+    this.game.events.emit('sinapsis:vidaCambio', GameState.vida);
   }
 
   // --------------------------------------------------------------------------
@@ -568,15 +591,21 @@ export class MapScene extends Phaser.Scene {
     }
 
     const v = CONFIG.velocidadAvatar;
+    const V = CONFIG.vida;
     let dx = 0, dy = 0;
     if (this.cursors.left.isDown || this.keys.A.isDown) dx -= 1;
     if (this.cursors.right.isDown || this.keys.D.isDown) dx += 1;
     if (this.cursors.up.isDown || this.keys.W.isDown) dy -= 1;
     if (this.cursors.down.isDown || this.keys.S.isDown) dy += 1;
 
+    // Velocidad máx se reduce con cada corazón perdido (mínimo 70 %).
+    const corazonesPerdidos = V.max - GameState.vida;
+    const factorVida = Math.max(0.7, 1 - corazonesPerdidos * V.factorVelocidadPorCorazonPerdido);
+
     const stunned = time < this.avatar.stunUntil;
     const accel = stunned ? v.acceleration * 0.3 : v.acceleration;
-    const maxV = stunned ? v.maxSpeed * CONFIG.pulsosEstres.factorVelocidadStun : v.maxSpeed;
+    const baseMax = v.maxSpeed * factorVida;
+    const maxV = stunned ? baseMax * CONFIG.pulsosEstres.factorVelocidadStun : baseMax;
     this.avatar.setMaxVelocity(maxV, maxV);
 
     if (dx !== 0 || dy !== 0) {
@@ -593,15 +622,24 @@ export class MapScene extends Phaser.Scene {
       this.avatarGlow.y = this.avatar.y;
     }
 
-    // Sync halos con pulsos + wander de dirección
+    // Sync halos con pulsos + wander de dirección + anti-stuck
     const P = CONFIG.pulsosEstres;
     const now = time;
     this.pulsesGroup.children.iterate((p) => {
       if (!p) return;
       if (p._halo) { p._halo.x = p.x; p._halo.y = p.y; }
-      if (p.body && p._nextWander && now >= p._nextWander) {
-        const vx = p.body.velocity.x, vy = p.body.velocity.y;
-        const mag = Math.hypot(vx, vy) || p._baseSpeed || P.velocidad;
+      if (!p.body) return;
+      const vx = p.body.velocity.x, vy = p.body.velocity.y;
+      const mag = Math.hypot(vx, vy);
+      // Anti-stuck: si quedó muy lento por colisiones, pegale un empujón.
+      if (mag < P.velocidadMinima) {
+        const ang = Math.random() * Math.PI * 2;
+        const target = p._baseSpeed || P.velocidad;
+        p.body.setVelocity(Math.cos(ang) * target, Math.sin(ang) * target);
+        return;
+      }
+      // Wander: rotación periódica de la dirección.
+      if (p._nextWander && now >= p._nextWander) {
         const ang = Math.atan2(vy, vx);
         const delta = (Math.random() * 2 - 1) * P.wanderAnguloMax;
         const newAng = ang + delta;

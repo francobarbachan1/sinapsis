@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { CONFIG } from '../../config.js';
+import { GameState } from '../../state.js';
 import { StationBase } from './StationBase.js';
 
 export class BrocaStation extends StationBase {
@@ -179,18 +180,27 @@ export class BrocaStation extends StationBase {
   }
 
   _evaluar() {
-    // ¿Coincide la línea con la frase objetivo (case-insensitive)?
+    // Comparamos solo por texto (ignoramos el flag esDistractor): cuando la
+    // frase tiene palabras que también figuran como distractores —ej. "puede",
+    // "siente"— da lo mismo qué ficha eligieron, si la frase queda armada
+    // correctamente la validamos.
     if (this.linea.length !== this.palabrasObjetivo.length) {
       this.mensaje.setText('');
       return;
     }
     const armada = this.linea.map((i) => i.texto).join(' ').toLowerCase();
     const objetivo = this.palabrasObjetivo.join(' ').toLowerCase();
-    if (armada === objetivo && this.linea.every((i) => !i.esDistractor)) {
+    if (armada === objetivo) {
       this.mensaje.setText('Frase reconstruida.');
       this.time.delayedCall(700, () => this.resolverEstacion());
     } else {
       this.mensaje.setText('Esa no es. Probá otro orden.');
+      if (!this._errorRegistrado) {
+        // Contamos un error por intento fallido distinto, no por cada click
+        this._errorRegistrado = true;
+        GameState.errores.broca = (GameState.errores.broca || 0) + 1;
+        this.time.delayedCall(800, () => { this._errorRegistrado = false; });
+      }
     }
   }
 }

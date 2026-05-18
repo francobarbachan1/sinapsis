@@ -25,6 +25,13 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('rhythm1', r.rhythm1);
     this.load.audio('rhythm2', r.rhythm2);
     this.load.audio('rhythm3', r.rhythm3);
+    this.load.audio('note1', r.note1);
+    this.load.audio('note2', r.note2);
+    this.load.audio('note3', r.note3);
+    this.load.audio('note4', r.note4);
+    this.load.audio('note5', r.note5);
+    this.load.audio('note6', r.note6);
+    this.load.audio('note7', r.note7);
     this.load.audio('emotionCalma', r.emotionCalma);
     this.load.audio('emotionTension', r.emotionTension);
     this.load.audio('emotionAlegria', r.emotionAlegria);
@@ -37,10 +44,8 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     this._generarTexturas();
-    this.cameras.main.fadeOut(250, 31, 56, 100);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('IntroScene');
-    });
+    // Transición inmediata; IntroScene tiene su propio fadeIn.
+    this.scene.start('IntroScene');
   }
 
   // --------------------------------------------------------------------------

@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { CONFIG } from '../../config.js';
+import { GameState } from '../../state.js';
 import { StationBase } from './StationBase.js';
 
 // Paleta de colores para las letras (alcanza para palabras con hasta ~10
@@ -66,8 +67,8 @@ export class OccipitalStation extends StationBase {
       color: '#5F5E5A',
     }).setOrigin(0.5);
 
-    // Clave (letra ↔ color), siempre visible
-    this.add.text(L.brainAreaW / 2, 120, 'CLAVE', {
+    // Paleta de colores disponibles (sin letras — la palabra se revela al acertar).
+    this.add.text(L.brainAreaW / 2, 120, 'COLORES', {
       fontFamily: 'sans-serif',
       fontSize: '11px',
       color: '#5F5E5A',
@@ -75,6 +76,10 @@ export class OccipitalStation extends StationBase {
       letterSpacing: 2,
     }).setOrigin(0.5);
 
+    // La clave NO muestra las letras (eso revelaría la palabra). Sólo
+    // muestra los colores disponibles. La asociación letra↔color se revela
+    // al acertar la secuencia: cada slot reconstruido correctamente muestra
+    // su letra.
     const keys = Object.entries(this.mapaLetraColor);
     const keyW = 56, keyH = 56, gap = 10;
     const totalW = keys.length * keyW + (keys.length - 1) * gap;
@@ -83,12 +88,6 @@ export class OccipitalStation extends StationBase {
       const cx = startX + i * (keyW + gap) + keyW / 2;
       const cy = 168;
       this.add.rectangle(cx, cy, keyW, keyH, c.color, 1).setStrokeStyle(2, 0x1f3864, 0.4);
-      this.add.text(cx, cy, letra, {
-        fontFamily: 'sans-serif',
-        fontSize: '24px',
-        fontStyle: 'bold',
-        color: '#FFFFFF',
-      }).setOrigin(0.5);
     });
 
     // Zona secuencia
@@ -278,6 +277,7 @@ export class OccipitalStation extends StationBase {
       });
       const flash = this.add.rectangle(slot.bg.x + this.zonaReconstruccion.x, slot.bg.y + this.zonaReconstruccion.y, 50, 50, 0xc14a4a, 0.4);
       this.tweens.add({ targets: flash, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
+      GameState.errores.occipital = (GameState.errores.occipital || 0) + 1;
       this._resetReconstruccion();
     }
   }

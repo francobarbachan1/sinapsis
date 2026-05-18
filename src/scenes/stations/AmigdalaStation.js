@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { CONFIG } from '../../config.js';
+import { GameState } from '../../state.js';
 import { StationBase } from './StationBase.js';
 
 const FRAGMENTOS = [
@@ -162,6 +163,7 @@ export class AmigdalaStation extends StationBase {
         }
         // Incorrecta: vuelve a su casa con feedback suave
         this._flashRojo(slot);
+        GameState.errores.amigdala = (GameState.errores.amigdala || 0) + 1;
       }
       // En cualquier otro caso: volver a casa
       this.tweens.add({
