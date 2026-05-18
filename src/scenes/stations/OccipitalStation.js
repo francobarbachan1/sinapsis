@@ -54,8 +54,12 @@ export class OccipitalStation extends StationBase {
     this.fase = 'inicio'; // 'inicio' | 'mostrando' | 'reconstruyendo'
 
     this._dibujarUI();
-    // Auto-iniciar primera ronda tras pequeño delay
-    this.time.delayedCall(700, () => this._mostrarSecuencia());
+    // El arranque real (mostrar la secuencia con tiempo) se difiere a
+    // iniciarJuego(), que StationBase llama después del 3-2-1.
+  }
+
+  iniciarJuego() {
+    this._mostrarSecuencia();
   }
 
   _dibujarUI() {

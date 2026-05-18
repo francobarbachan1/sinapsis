@@ -92,8 +92,12 @@ export class HipocampoStation extends StationBase {
       const n = parseInt(e.key, 10);
       if (Number.isFinite(n) && n >= 1 && n <= 7) this._onNotaClick(n);
     });
+    // El arranque real (audio + secuencia) se difiere a iniciarJuego(),
+    // que StationBase llama después del 3-2-1.
+  }
 
-    this.time.delayedCall(700, () => this._iniciarRonda(0));
+  iniciarJuego() {
+    this._iniciarRonda(0);
   }
 
   // --------------------------------------------------------------------------

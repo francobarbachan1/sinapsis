@@ -39,11 +39,15 @@ export class MapScene extends Phaser.Scene {
     // Sonido
     this.sm = getSoundManager(this);
 
+    // Reset defensivo: las refs viejas pueden apuntar a objetos destruidos
+    // si la escena fue stop+start (no sleep+wake).
+    this.roomLayer = null;
+    this.doorsGroup = null;
+    this.stationZone = null;
+
     // Grupos (la física se asigna por elemento; el group es solo contenedor)
     this.wallsGroup = this.add.group();
     this.pulsesGroup = this.physics.add.group();
-    // Bloqueadores de puerta: invisibles, sólo colisionan con pulsos para
-    // evitar que se escapen por los huecos. El avatar los ignora.
     this.pulseDoorBlockersGroup = this.add.group();
     this.haloGroup = this.add.group();
     this._colliders = [];

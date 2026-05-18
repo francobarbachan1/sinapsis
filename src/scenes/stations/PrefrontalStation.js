@@ -23,6 +23,11 @@ export class PrefrontalStation extends StationBase {
     this.consolidadas = new Set();
 
     this._dibujarPanelLateral();
+    // No mostramos la pregunta hasta iniciarJuego(): así no se ve filtrada
+    // detrás del velo de la consigna.
+  }
+
+  iniciarJuego() {
     this._mostrarPregunta();
   }
 

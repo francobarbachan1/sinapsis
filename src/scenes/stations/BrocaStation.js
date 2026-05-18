@@ -15,7 +15,7 @@ export class BrocaStation extends StationBase {
   }
 
   consignaTexto() {
-    return 'Reconstruí la frase haciendo clic en las palabras en el orden correcto. Hay palabras de más (distractoras): tienen que quedar afuera.';
+    return 'Es una frase exacta del curso sobre la relación entre emoción y aprendizaje. Tiene 9 palabras, empieza con "No" y termina con "siente". Reconstruila haciendo clic en las palabras en el orden correcto. Algunas palabras del pool son distractoras — quedan afuera.';
   }
 
   construirContenido() {
@@ -39,8 +39,21 @@ export class BrocaStation extends StationBase {
       color: '#5F5E5A',
     }).setOrigin(0.5);
 
+    // Pista de estructura: cuántas palabras + primera y última como anclaje
+    const total = this.palabrasObjetivo.length;
+    const primera = this.palabrasObjetivo[0];
+    const ultima = this.palabrasObjetivo[total - 1];
+    this.add.text(L.brainAreaW / 2, 106,
+      `${total} palabras  ·  empieza con "${primera}"  ·  termina con "${ultima}"`,
+      {
+        fontFamily: 'sans-serif',
+        fontSize: '13px',
+        fontStyle: 'italic',
+        color: this.region.colorHex,
+      }).setOrigin(0.5);
+
     // Línea de construcción
-    this.add.text(L.brainAreaW / 2, 130, 'TU FRASE', {
+    this.add.text(L.brainAreaW / 2, 134, 'TU FRASE', {
       fontFamily: 'sans-serif',
       fontSize: '11px',
       color: '#5F5E5A',
@@ -99,7 +112,8 @@ export class BrocaStation extends StationBase {
     // Línea (centrada)
     const renderRow = (items, container, isLinea) => {
       if (items.length === 0 && isLinea) {
-        const t = this.add.text(0, 0, '(vacía — tocá una palabra abajo)', {
+        const primera = this.palabrasObjetivo[0];
+        const t = this.add.text(0, 0, `(vacía — empezá tocando "${primera}" abajo)`, {
           fontFamily: 'sans-serif', fontSize: '13px', color: '#9b988f', fontStyle: 'italic',
         }).setOrigin(0.5);
         container.add(t);
