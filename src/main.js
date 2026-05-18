@@ -16,7 +16,7 @@ import { BrocaStation } from './scenes/stations/BrocaStation.js';
 import { PrefrontalStation } from './scenes/stations/PrefrontalStation.js';
 
 const config = {
-  type: Phaser.AUTO,
+  type: Phaser.AUTO, // WebGL si está disponible, Canvas como fallback.
   parent: 'game',
   width: CONFIG.ancho,
   height: CONFIG.alto,
@@ -28,6 +28,13 @@ const config = {
   physics: {
     default: 'arcade',
     arcade: { gravity: { x: 0, y: 0 }, debug: false },
+  },
+  fps: {
+    // forceSetTimeOut: usar setTimeout en vez de requestAnimationFrame, así
+    // el bucle sigue andando aunque el documento esté hidden (importante
+    // para preview tools y tabs en background).
+    forceSetTimeOut: true,
+    target: 60,
   },
   scene: [
     BootScene,

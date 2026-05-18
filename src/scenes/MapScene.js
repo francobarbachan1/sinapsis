@@ -187,17 +187,47 @@ export class MapScene extends Phaser.Scene {
   }
 
   _dibujarTramaCelular(w, h, room) {
-    const g = this.add.graphics();
-    g.lineStyle(1, 0xc9a8a3, 0.18);
-    // Puntos dispersos como "células"
     const rand = mulberry32(roomSeed(room));
-    for (let i = 0; i < 35; i++) {
-      const x = 40 + rand() * (w - 80);
-      const y = 40 + rand() * (h - 80);
-      const r = 6 + rand() * 12;
+
+    // Capa 1: viñeta sutil de oscuridad en los bordes para dar profundidad
+    const vig = this.add.graphics();
+    const tinte = room.regionId
+      ? CONFIG.regiones[room.regionId].color
+      : 0x4a3a3a;
+    vig.fillStyle(tinte, 0.05);
+    vig.fillRect(0, 0, w, h);
+    this.roomLayer.add(vig);
+
+    // Capa 2: círculos (células) con varias densidades y opacidades
+    const g = this.add.graphics();
+    for (let i = 0; i < 28; i++) {
+      const x = 50 + rand() * (w - 100);
+      const y = 50 + rand() * (h - 100);
+      const r = 8 + rand() * 16;
+      const a = 0.12 + rand() * 0.10;
+      g.lineStyle(1.2, 0xc9a8a3, a);
       g.strokeCircle(x, y, r);
+      // núcleo
+      if (rand() > 0.3) {
+        g.fillStyle(0xb88a85, a * 0.8);
+        g.fillCircle(x, y, r * 0.25);
+      }
     }
-    g.setAlpha(0.6);
+    // Capilares: líneas suaves serpenteantes
+    g.lineStyle(1, 0xb88a85, 0.12);
+    for (let i = 0; i < 5; i++) {
+      const x0 = 30 + rand() * (w - 60);
+      const y0 = 30 + rand() * (h - 60);
+      let x = x0, y = y0;
+      g.beginPath();
+      g.moveTo(x, y);
+      for (let s = 0; s < 5; s++) {
+        x += (rand() - 0.5) * 80;
+        y += (rand() - 0.5) * 80;
+        g.lineTo(x, y);
+      }
+      g.strokePath();
+    }
     this.roomLayer.add(g);
   }
 
@@ -223,29 +253,56 @@ export class MapScene extends Phaser.Scene {
 
     const grupo = this.add.container(cx, cy);
 
-    // Halo / pad de acceso
-    const haloRadio = 84;
-    const halo = this.add.circle(0, 0, haloRadio, r.color, resuelta ? 0.35 : (activa ? 0.22 : 0.12))
+    // Halo / pad de acceso — más grande
+    const haloRadio = 92;
+    const halo = this.add.circle(0, 0, haloRadio, r.color, resuelta ? 0.32 : (activa ? 0.22 : 0.12))
       .setStrokeStyle(3, r.color, resuelta ? 1 : (activa ? 0.85 : 0.5));
     grupo.add(halo);
+
+    // Forma blob orgánica (varios círculos solapados con leve offset)
+    const seed = (r.color & 0xffff) >>> 0;
+    const rand = mulberry32(seed);
+    const blob = this.add.graphics();
+    const blobFillAlpha = resuelta ? 1 : 0.32;
+    blob.fillStyle(r.color, blobFillAlpha);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const ox = Math.cos(a) * 14;
+      const oy = Math.sin(a) * 14;
+      blob.fillCircle(ox, oy, 28 + rand() * 6);
+    }
+    blob.fillStyle(r.color, blobFillAlpha);
+    blob.fillCircle(0, 0, 32);
+    grupo.add(blob);
 
     if (resuelta) {
       // Pulso encendido (glow que crece y vuelve)
       this.tweens.add({
-        targets: halo, scale: { from: 1, to: 1.08 }, alpha: { from: 0.35, to: 0.5 },
+        targets: halo, scale: { from: 1, to: 1.08 }, alpha: { from: 0.32, to: 0.5 },
         duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
       });
-      // Núcleo brillante
-      const inner = this.add.circle(0, 0, 36, r.color, 1);
-      grupo.add(inner);
-      const shine = this.add.circle(-10, -10, 12, 0xffffff, 0.5);
+      // Brillo central
+      const shine = this.add.circle(-12, -12, 14, 0xffffff, 0.55);
       grupo.add(shine);
+      // Partículas brillantes ocasionales
+      this.time.addEvent({
+        delay: 900, loop: true,
+        callback: () => {
+          if (!grupo.scene) return;
+          const a = Math.random() * Math.PI * 2;
+          const dot = this.add.circle(cx, cy, 3, 0xffffff, 0.85);
+          this.tweens.add({
+            targets: dot,
+            x: cx + Math.cos(a) * 70,
+            y: cy + Math.sin(a) * 70,
+            alpha: 0, duration: 900, ease: 'Cubic.easeOut',
+            onComplete: () => dot.destroy(),
+          });
+        },
+      });
     } else {
-      // Núcleo apagado
-      const inner = this.add.circle(0, 0, 36, r.color, 0.3).setStrokeStyle(2, r.color, 0.7);
-      grupo.add(inner);
       if (activa) {
-        // Anillos pulsantes para indicar "entrar acá"
+        // Anillos pulsantes hacia afuera para invitar a entrar
         this.tweens.add({
           targets: halo, scale: { from: 1, to: 1.18 }, alpha: { from: 0.22, to: 0 },
           duration: 1200, yoyo: false, repeat: -1, ease: 'Cubic.easeOut',
@@ -337,11 +394,61 @@ export class MapScene extends Phaser.Scene {
   }
 
   _wall(cx, cy, w, h) {
-    const wallColor = 0x6e4d4a;
-    const r = this.add.rectangle(cx, cy, w, h, wallColor, 1).setStrokeStyle(2, 0x4a302d, 1);
+    // Cuerpo físico invisible (mantiene la colisión rectangular limpia)
+    const phys = this.add.rectangle(cx, cy, w, h, 0x000000, 0);
+    this.physics.add.existing(phys, true);
+    this.wallsGroup.add(phys);
+
+    // Visual: pared de "tejido cerebral" — rosa apagado en lugar de marrón.
+    const wallFill = 0xc9a8a3;
+    const wallStroke = 0x8e645e;
+    const r = this.add.rectangle(cx, cy, w, h, wallFill, 1).setStrokeStyle(2, wallStroke, 1);
     r.setDepth(2);
-    this.physics.add.existing(r, true); // static body
-    this.wallsGroup.add(r);
+    this.roomLayer.add(r);
+
+    // Textura de "membrana": puntos pequeños distribuidos
+    const g = this.add.graphics().setDepth(3);
+    g.fillStyle(0x8e645e, 0.35);
+    const cols = Math.max(3, Math.floor(w / 18));
+    const rows = Math.max(2, Math.floor(h / 18));
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        const x = cx - w / 2 + (i + 0.5) * (w / cols);
+        const y = cy - h / 2 + (j + 0.5) * (h / rows);
+        g.fillCircle(x, y, 1.3);
+      }
+    }
+
+    // Bumps orgánicos en la cara interior — pequeños semicírculos que dan
+    // la sensación de tejido pulsante. Detectamos qué lado es "interior"
+    // según la posición de la pared respecto al centro de la sala.
+    const M = CONFIG.mapa;
+    const isHorizontal = w > h;
+    if (isHorizontal) {
+      const isTop = cy < M.salaH / 2;
+      const yInner = isTop ? cy + h / 2 : cy - h / 2;
+      const dirY = isTop ? 1 : -1;
+      const spacing = 36;
+      for (let x = cx - w / 2 + spacing; x < cx + w / 2 - spacing; x += spacing) {
+        g.fillStyle(wallFill, 1);
+        g.fillCircle(x, yInner + dirY * 0, 4);
+        g.lineStyle(2, wallStroke, 1);
+        g.strokeCircle(x, yInner + dirY * 0, 4);
+      }
+    } else {
+      const isLeft = cx < M.salaW / 2;
+      const xInner = isLeft ? cx + w / 2 : cx - w / 2;
+      const dirX = isLeft ? 1 : -1;
+      const spacing = 36;
+      for (let y = cy - h / 2 + spacing; y < cy + h / 2 - spacing; y += spacing) {
+        g.fillStyle(wallFill, 1);
+        g.fillCircle(xInner + dirX * 0, y, 4);
+        g.lineStyle(2, wallStroke, 1);
+        g.strokeCircle(xInner + dirX * 0, y, 4);
+      }
+    }
+
+    this.roomLayer.add(g);
   }
 
   _puerta(room, lado) {

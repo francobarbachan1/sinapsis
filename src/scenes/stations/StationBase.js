@@ -45,16 +45,38 @@ export class StationBase extends Phaser.Scene {
     // Fondo del área de trabajo con color suave de la región
     this.add.rectangle(0, 0, L.brainAreaW, L.brainAreaH, r.fondoSuave, 1).setOrigin(0, 0);
 
-    // Banda superior color región
-    this.add.rectangle(0, 0, L.brainAreaW, 8, r.color, 1).setOrigin(0, 0);
+    // Header con gradiente del color de la región (más rico que la banda plana)
+    const headerG = this.add.graphics();
+    headerG.fillGradientStyle(r.color, r.color, r.color, r.fondoSuave, 1);
+    headerG.fillRect(0, 0, L.brainAreaW, 56);
+    // línea de acento
+    headerG.fillStyle(0xfbfaf7, 0.35);
+    headerG.fillRect(0, 54, L.brainAreaW, 2);
+
+    // Marca / ícono de la región (círculo a la izquierda del título)
+    const iconCx = 38, iconCy = 28;
+    const icon = this.add.circle(iconCx, iconCy, 14, 0xfbfaf7, 1).setStrokeStyle(2, 0x1f3864, 0.5);
+    this.tweens.add({
+      targets: icon, scale: { from: 1, to: 1.12 },
+      duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+    const innerDot = this.add.circle(iconCx, iconCy, 6, r.color, 1);
 
     // Título de la estación
-    this.add.text(24, 24, r.nombre, {
+    this.add.text(64, 14, r.nombre, {
       fontFamily: 'sans-serif',
-      fontSize: '28px',
+      fontSize: '26px',
       fontStyle: 'bold',
-      color: r.colorHex,
+      color: '#FFFFFF',
     });
+    // Etiqueta tipo "ESTACIÓN N"
+    const idx = ['amigdala', 'occipital', 'hipocampo', 'parietal', 'broca', 'prefrontal'].indexOf(this.regionId);
+    if (idx >= 0) {
+      this.add.text(64, 42, `ESTACIÓN ${idx + 1} DE 6`, {
+        fontFamily: 'sans-serif', fontSize: '10px',
+        color: '#FFFFFF', letterSpacing: 3,
+      }).setAlpha(0.8);
+    }
 
     // Área de contenido visible
     this.contentArea = {
@@ -64,11 +86,9 @@ export class StationBase extends Phaser.Scene {
       h: L.brainAreaH - 60,
     };
 
-    // Botón "leer consigna"
-    this._botonConsigna(L.brainAreaW - 24, 36);
-
-    // Botón "volver al mapa" (sólo permite si no se está resolviendo)
-    this._botonVolver(L.brainAreaW - 24, 78);
+    // Botones dentro del header (a la derecha)
+    this._botonConsigna(L.brainAreaW - 24, 18);
+    this._botonVolver(L.brainAreaW - 24, 42);
 
     // Contenido específico
     this.construirContenido();
@@ -162,37 +182,44 @@ export class StationBase extends Phaser.Scene {
   // Botones
   // --------------------------------------------------------------------------
   _botonConsigna(x, y) {
-    const w = 150, h = 32;
+    const w = 140, h = 26;
     const xL = x - w;
-    const bg = this.add.rectangle(xL, y - h / 2, w, h, 0xffffff, 0.9).setOrigin(0, 0)
-      .setStrokeStyle(1, this.region.color, 0.8);
+    const bg = this.add.rectangle(xL, y - h / 2, w, h, 0xffffff, 0.95).setOrigin(0, 0)
+      .setStrokeStyle(1, 0xfbfaf7, 0.6);
     const txt = this.add.text(xL + w / 2, y, 'Leer consigna', {
       fontFamily: 'sans-serif',
-      fontSize: '13px',
+      fontSize: '12px',
       color: this.region.colorHex,
       fontStyle: 'bold',
     }).setOrigin(0.5);
     const hit = this.add.zone(xL, y - h / 2, w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    hit.on('pointerover', () => bg.setFillStyle(0xfbfaf7, 1));
+    hit.on('pointerout', () => bg.setFillStyle(0xffffff, 0.95));
     hit.on('pointerdown', () => this._mostrarConsigna());
     return { bg, txt, hit };
   }
 
   _botonVolver(x, y) {
-    const w = 150, h = 26;
+    const w = 140, h = 22;
     const xL = x - w;
-    const bg = this.add.rectangle(xL, y - h / 2, w, h, 0xffffff, 0.5).setOrigin(0, 0)
-      .setStrokeStyle(1, 0x5f5e5a, 0.5);
+    const bg = this.add.rectangle(xL, y - h / 2, w, h, 0xffffff, 0.3).setOrigin(0, 0)
+      .setStrokeStyle(1, 0xfbfaf7, 0.5);
     const txt = this.add.text(xL + w / 2, y, '← Volver al mapa', {
       fontFamily: 'sans-serif',
-      fontSize: '11px',
-      color: '#5F5E5A',
+      fontSize: '10px',
+      color: '#FFFFFF',
     }).setOrigin(0.5);
     const hit = this.add.zone(xL, y - h / 2, w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    hit.on('pointerover', () => bg.setFillStyle(0xffffff, 0.5));
+    hit.on('pointerout', () => bg.setFillStyle(0xffffff, 0.3));
     hit.on('pointerdown', () => {
       if (this._resuelto) return;
-      this.scene.stop();
-      this.scene.wake('MapScene');
-      this.game.events.emit('sinapsis:refrescarHud');
+      this.cameras.main.fadeOut(220, 251, 250, 247);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.stop();
+        this.scene.wake('MapScene');
+        this.game.events.emit('sinapsis:refrescarHud');
+      });
     });
     return { bg, txt, hit };
   }

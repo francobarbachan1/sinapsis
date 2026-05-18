@@ -1,7 +1,6 @@
 // ============================================================================
-// EndScene — pantalla de cierre metacognitivo (Sección 16, recordatorio 4) +
-// estadísticas de la partida (pedido del usuario). Sin "ganador": las stats
-// hablan por sí mismas. El docente decide qué hacer con los datos.
+// EndScene — pantalla de cierre metacognitivo + estadísticas
+// Sin "ganador": las stats hablan por sí mismas (Sección 16 del spec).
 // ============================================================================
 
 import { CONFIG } from '../config.js';
@@ -19,62 +18,176 @@ export class EndScene extends Phaser.Scene {
   create() {
     const W = CONFIG.ancho;
     const H = CONFIG.alto;
-    this.cameras.main.setBackgroundColor(CONFIG.ui.fondoHex);
-    this.cameras.main.fadeIn(450, 31, 56, 100);
+
+    // Fondo con gradiente azul
+    this._dibujarFondo(W, H);
+
+    this.cameras.main.fadeIn(500, 14, 30, 58);
 
     // Título
     const tit = this.porTiempo ? 'El tiempo terminó' : 'Encendieron el cerebro completo';
-    this.add.text(W / 2, 48, tit, {
+    this.add.text(W / 2, 38, tit, {
       fontFamily: 'sans-serif',
-      fontSize: '32px',
+      fontSize: '30px',
       fontStyle: 'bold',
-      color: CONFIG.ui.tituloHex,
+      color: '#FFFFFF',
     }).setOrigin(0.5);
 
     // Mini-cerebro a la izquierda
-    this._dibujarMiniCerebro(245, H / 2 + 20);
+    this._dibujarMiniCerebro(225, H / 2 + 30);
 
     // Layout derecha
-    const rightX = 500;
-    const rightW = 500;
+    const rightX = 480;
+    const rightW = 510;
 
-    // Texto de cierre
-    const textoFinal = this.porTiempo ? CONFIG.textoFinDeTiempo : CONFIG.textoCierreCompleto;
-    this.add.text(rightX, 110, textoFinal, {
-      fontFamily: 'sans-serif',
-      fontSize: '15px',
-      color: '#1F3864',
-      wordWrap: { width: rightW },
-      lineSpacing: 4,
-    });
-
-    // Línea metacognitiva
-    this.add.text(rightX, 290, 'Ese cerebro que recorrieron es el suyo: así se ve, por dentro, cada vez que aprenden algo nuevo.', {
+    // Texto cierre
+    this.add.text(rightX, 80, this.porTiempo ? CONFIG.textoFinDeTiempo : CONFIG.textoCierreCompleto, {
       fontFamily: 'sans-serif',
       fontSize: '14px',
-      fontStyle: 'italic',
-      color: '#2E5FA3',
+      color: '#e6ecf8',
       wordWrap: { width: rightW },
       lineSpacing: 4,
     });
 
-    // Panel de estadísticas
-    this._dibujarStats(rightX, 360, rightW);
+    // Línea metacognitiva (en cursiva con color de acento)
+    this.add.text(rightX, 220,
+      'Ese cerebro que recorrieron es el suyo: así se ve, por dentro, cada vez que aprenden algo nuevo.',
+      {
+        fontFamily: 'sans-serif',
+        fontSize: '13px',
+        fontStyle: 'italic',
+        color: '#ffe27a',
+        wordWrap: { width: rightW },
+        lineSpacing: 3,
+      });
+
+    // 4 big stats en una grilla
+    this._dibujarStatsBig(rightX, 290, rightW);
+
+    // Errores por estación
+    this._dibujarErrores(rightX, 470, rightW);
 
     // Botón
-    const btnY = H - 48;
-    const btn = this.add.rectangle(rightX + 115, btnY, 220, 42, 0x2e5fa3, 1).setStrokeStyle(2, 0x1f3864);
-    this.add.text(rightX + 115, btnY, 'Nueva partida', {
-      fontFamily: 'sans-serif',
-      fontSize: '15px',
+    this._dibujarBotonNueva(rightX, H - 42, rightW);
+  }
+
+  _dibujarFondo(W, H) {
+    const g = this.add.graphics();
+    g.fillGradientStyle(0x0e1e3a, 0x0e1e3a, 0x1f3864, 0x1f3864, 1);
+    g.fillRect(0, 0, W, H);
+
+    // Líneas decorativas sinapsis
+    const rand = mulberry32(7);
+    const lines = this.add.graphics().setAlpha(0.12);
+    for (let i = 0; i < 10; i++) {
+      const x1 = rand() * W, y1 = rand() * H;
+      const x2 = x1 + (rand() - 0.5) * 220;
+      const y2 = y1 + (rand() - 0.5) * 220;
+      lines.lineStyle(1, 0x88a4dd, 0.5);
+      lines.lineBetween(x1, y1, x2, y2);
+      lines.fillStyle(0x88a4dd, 0.7);
+      lines.fillCircle(x1, y1, 2);
+      lines.fillCircle(x2, y2, 2);
+    }
+  }
+
+  _dibujarStatsBig(x, y, w) {
+    const cellW = (w - 20) / 4;
+    const cellH = 80;
+    const tiempoUsado = GameState.tiempoUsadoSegundos();
+    const tMin = Math.floor(tiempoUsado / 60);
+    const tSec = tiempoUsado % 60;
+    const tiempoFmt = `${tMin}:${String(tSec).padStart(2, '0')}`;
+
+    const stats = [
+      { lbl: 'Tiempo',    val: tiempoFmt,                                color: '#88a4dd' },
+      { lbl: 'Regiones',  val: `${GameState.regionesResueltas.length}/6`, color: '#ffe27a' },
+      { lbl: 'Vida',      val: `${GameState.vida}/${GameState.vidaMax}`,
+        color: GameState.vida >= 4 ? '#7fd1a8' : (GameState.vida >= 2 ? '#ffd9a8' : '#ff8a8a') },
+      { lbl: 'Pulsos',    val: `${GameState.colisionesCortisol || 0}`,    color: '#ff8a5c' },
+    ];
+    stats.forEach((s, i) => {
+      const cx = x + i * (cellW + 7);
+      const cy = y;
+      const g = this.add.graphics();
+      g.fillStyle(0xffffff, 0.06);
+      g.fillRoundedRect(cx, cy, cellW, cellH, 10);
+      g.lineStyle(1, 0xffffff, 0.16);
+      g.strokeRoundedRect(cx, cy, cellW, cellH, 10);
+      this.add.text(cx + cellW / 2, cy + 16, s.lbl.toUpperCase(), {
+        fontFamily: 'sans-serif', fontSize: '10px', color: '#a8b8d8',
+        fontStyle: 'bold', letterSpacing: 2,
+      }).setOrigin(0.5);
+      this.add.text(cx + cellW / 2, cy + 48, s.val, {
+        fontFamily: 'sans-serif', fontSize: '26px', fontStyle: 'bold',
+        color: s.color,
+      }).setOrigin(0.5);
+    });
+  }
+
+  _dibujarErrores(x, y, w) {
+    this.add.text(x, y, 'ERRORES POR ESTACIÓN', {
+      fontFamily: 'sans-serif', fontSize: '11px', color: '#a8b8d8',
+      fontStyle: 'bold', letterSpacing: 2,
+    });
+    this.add.rectangle(x, y + 18, w, 1, 0xffffff, 0.18).setOrigin(0, 0);
+
+    const orden = ['amigdala', 'occipital', 'hipocampo', 'parietal', 'broca', 'prefrontal'];
+    // Encontrar el máximo para escalar las barras
+    let maxErr = 1;
+    for (const id of orden) maxErr = Math.max(maxErr, GameState.errores[id] || 0);
+
+    const startY = y + 30;
+    const rowH = 24;
+    orden.forEach((id, i) => {
+      const r = CONFIG.regiones[id];
+      const errores = GameState.errores[id] || 0;
+      const ry = startY + i * rowH;
+      // Bullet de color
+      this.add.circle(x + 6, ry + 8, 5, r.color, 1).setStrokeStyle(1, 0xfbfaf7, 0.6);
+      // Nombre
+      this.add.text(x + 22, ry, r.nombre, {
+        fontFamily: 'sans-serif', fontSize: '12px', color: '#e6ecf8',
+      });
+      // Barra
+      const barX = x + 200;
+      const barW = w - 200 - 50;
+      const barH = 6;
+      this.add.rectangle(barX, ry + 9, barW, barH, 0xffffff, 0.12).setOrigin(0, 0);
+      const fillRel = errores === 0 ? 0.0 : errores / maxErr;
+      const barColor = errores === 0 ? 0x7fd1a8 : r.color;
+      if (fillRel > 0) {
+        this.add.rectangle(barX, ry + 9, barW * fillRel, barH, barColor, 1).setOrigin(0, 0);
+      }
+      // Número
+      this.add.text(x + w - 4, ry, `${errores}`, {
+        fontFamily: 'sans-serif', fontSize: '13px', fontStyle: 'bold',
+        color: errores === 0 ? '#7fd1a8' : '#FFFFFF',
+      }).setOrigin(1, 0);
+    });
+  }
+
+  _dibujarBotonNueva(x, cy, w) {
+    const bw = 220, bh = 42;
+    const cx = x + w / 2;
+    const btn = this.add.graphics();
+    const drawBtn = (color) => {
+      btn.clear();
+      btn.fillStyle(color, 1);
+      btn.fillRoundedRect(cx - bw / 2, cy - bh / 2, bw, bh, 10);
+      btn.lineStyle(2, 0xffffff, 0.4);
+      btn.strokeRoundedRect(cx - bw / 2, cy - bh / 2, bw, bh, 10);
+    };
+    drawBtn(0x2e5fa3);
+    this.add.text(cx, cy, 'Nueva partida', {
+      fontFamily: 'sans-serif', fontSize: '15px', fontStyle: 'bold',
       color: '#FFFFFF',
-      fontStyle: 'bold',
     }).setOrigin(0.5);
-    btn.setInteractive({ useHandCursor: true });
-    btn.on('pointerover', () => btn.setFillStyle(0x1f3864, 1));
-    btn.on('pointerout', () => btn.setFillStyle(0x2e5fa3, 1));
-    btn.on('pointerdown', () => {
-      this.cameras.main.fadeOut(350, 31, 56, 100);
+    const hit = this.add.zone(cx, cy, bw, bh).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    hit.on('pointerover', () => drawBtn(0x4477c2));
+    hit.on('pointerout', () => drawBtn(0x2e5fa3));
+    hit.on('pointerdown', () => {
+      this.cameras.main.fadeOut(380, 14, 30, 58);
       this.cameras.main.once('camerafadeoutcomplete', () => {
         GameState.reset();
         this.scene.start('IntroScene');
@@ -82,104 +195,40 @@ export class EndScene extends Phaser.Scene {
     });
   }
 
-  // --------------------------------------------------------------------------
-  // Stats: tiempo + vida + errores por estación + colisiones de cortisol.
-  // --------------------------------------------------------------------------
-  _dibujarStats(x, y, w) {
-    // Header
-    this.add.text(x, y, 'CÓMO LES FUE', {
-      fontFamily: 'sans-serif',
-      fontSize: '12px',
-      color: '#5F5E5A',
-      fontStyle: 'bold',
-      letterSpacing: 2,
-    });
-    this.add.rectangle(x, y + 18, w, 1, 0x5f5e5a, 0.25).setOrigin(0, 0);
-
-    const lineH = 22;
-    let cy = y + 30;
-
-    const tiempoUsado = GameState.tiempoUsadoSegundos();
-    const tMin = Math.floor(tiempoUsado / 60);
-    const tSec = tiempoUsado % 60;
-    const tiempoFmt = `${tMin}:${String(tSec).padStart(2, '0')}`;
-
-    const filas = [
-      ['Tiempo usado', tiempoFmt, '#1F3864'],
-      ['Regiones encendidas', `${GameState.regionesResueltas.length} de 6`, '#1F3864'],
-      ['Vida al final', `${GameState.vida} / ${GameState.vidaMax}`,
-        GameState.vida >= 4 ? '#0F6E56' : (GameState.vida >= 2 ? '#854F0B' : '#993556')],
-      ['Pulsos de estrés que tocaron', `${GameState.colisionesCortisol || 0}`, '#1F3864'],
-    ];
-
-    for (const [lbl, val, color] of filas) {
-      this.add.text(x, cy, lbl, {
-        fontFamily: 'sans-serif', fontSize: '13px', color: '#5F5E5A',
-      });
-      this.add.text(x + w - 4, cy, val, {
-        fontFamily: 'sans-serif', fontSize: '13px', color, fontStyle: 'bold',
-      }).setOrigin(1, 0);
-      cy += lineH;
-    }
-
-    // Errores por estación
-    cy += 8;
-    this.add.text(x, cy, 'ERRORES POR ESTACIÓN', {
-      fontFamily: 'sans-serif',
-      fontSize: '11px',
-      color: '#5F5E5A',
-      fontStyle: 'bold',
-      letterSpacing: 2,
-    });
-    cy += 20;
-
-    const orden = ['amigdala', 'occipital', 'hipocampo', 'parietal', 'broca', 'prefrontal'];
-    for (const id of orden) {
-      const r = CONFIG.regiones[id];
-      const errores = GameState.errores[id] || 0;
-      // Bullet de color
-      this.add.circle(x + 6, cy + 8, 5, r.color, 1).setStrokeStyle(1, 0x1f3864, 0.4);
-      this.add.text(x + 18, cy, r.nombre, {
-        fontFamily: 'sans-serif', fontSize: '12px', color: '#5F5E5A',
-      });
-      this.add.text(x + w - 4, cy, `${errores}`, {
-        fontFamily: 'sans-serif', fontSize: '13px',
-        color: errores === 0 ? '#0F6E56' : '#1F3864',
-        fontStyle: 'bold',
-      }).setOrigin(1, 0);
-      cy += 19;
-    }
-  }
-
   _dibujarMiniCerebro(cx, cy) {
-    const rx = 175, ry = 230;
-    const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.06);
-    g.fillEllipse(cx + 5, cy + 8, rx * 2, ry * 2);
-    g.fillStyle(0xf6e8e5, 1);
-    g.fillEllipse(cx, cy, rx * 2, ry * 2);
-    g.lineStyle(2, 0xc9a8a3, 1);
-    g.strokeEllipse(cx, cy, rx * 2, ry * 2);
+    // Usar la silueta procedural
+    const silueta = this.add.image(cx, cy, 'cerebroSilueta').setScale(1.05);
+    silueta.setTint(0xffe5e0);
 
+    // Regiones sobre la silueta
     const L = CONFIG.layout;
     for (const [id, r] of Object.entries(CONFIG.regiones)) {
-      const dx = (r.x - L.brainAreaW / 2) * (rx / 270);
-      const dy = (r.y - (L.brainAreaH / 2 + 10)) * (ry / 320);
+      const dx = (r.x - L.brainAreaW / 2) * (120 / 270);
+      const dy = (r.y - (L.brainAreaH / 2 + 10)) * (150 / 320);
       const x = cx + dx;
       const y = cy + dy;
       const resuelta = GameState.esRegionResuelta(id);
+
       let circle;
       if (resuelta) {
-        circle = this.add.circle(x, y, r.radio * 0.5, r.color, 0.9).setStrokeStyle(2, r.color, 1);
+        // Halo glow
+        const halo = this.add.circle(x, y, r.radio * 0.55, r.color, 0.25);
+        this.tweens.add({
+          targets: halo, scale: { from: 1, to: 1.4 }, alpha: { from: 0.25, to: 0 },
+          duration: 1600, repeat: -1, ease: 'Cubic.easeOut',
+        });
+        circle = this.add.circle(x, y, r.radio * 0.42, r.color, 0.95)
+          .setStrokeStyle(2, 0xfbfaf7, 1);
         this.tweens.add({
           targets: circle, scale: { from: 1, to: 1.08 },
           duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
         });
       } else {
-        circle = this.add.circle(x, y, r.radio * 0.5, r.color, 0.15).setStrokeStyle(1, r.color, 0.5);
+        circle = this.add.circle(x, y, r.radio * 0.4, r.color, 0.18)
+          .setStrokeStyle(1, r.color, 0.5);
       }
       const lblColor = resuelta ? r.colorHex : '#9b988f';
-      this.add.text(x, y + r.radio * 0.5 + 7, r.nombre, {
+      this.add.text(x, y + r.radio * 0.5 + 6, r.nombre, {
         fontFamily: 'sans-serif',
         fontSize: '10px',
         color: lblColor,
@@ -187,4 +236,13 @@ export class EndScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
   }
+}
+
+function mulberry32(a) {
+  return function () {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }

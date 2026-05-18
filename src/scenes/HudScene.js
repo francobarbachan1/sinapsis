@@ -225,54 +225,71 @@ export class HudScene extends Phaser.Scene {
   _dibujarMinimapa(hudX, baseY) {
     const L = CONFIG.layout;
     const rooms = CONFIG.mapa.rooms;
-    const cells = Object.entries(rooms);
 
-    // Determinar bounds del grid
-    let maxCol = 0, maxRow = 0;
-    for (const [, r] of cells) {
-      if (r.minimap.col > maxCol) maxCol = r.minimap.col;
-      if (r.minimap.row > maxRow) maxRow = r.minimap.row;
-    }
-    const cellSize = 30, gap = 5;
-    const gridW = (maxCol + 1) * cellSize + maxCol * gap;
-    const gridH = (maxRow + 1) * cellSize + maxRow * gap;
-    const startX = hudX + (L.hudW - gridW) / 2;
+    // Centro y dimensiones del minimapa-cerebro
+    const mapW = 230, mapH = 240;
+    const startX = hudX + (L.hudW - mapW) / 2;
     const startY = baseY;
+    const cx = startX + mapW / 2;
+    const cy = startY + mapH / 2;
 
-    // Conectores entre puertas (líneas tenues)
+    // Silueta de cerebro como fondo (rosado pálido sobre el azul del HUD)
+    const silueta = this.add.image(cx, cy, 'cerebroSilueta').setAlpha(0.85);
+    // Escalar para entrar bien en el minimapa
+    const targetW = mapW + 10;
+    const scale = targetW / 260;
+    silueta.setScale(scale);
+    silueta.setTint(0xffe5e0);
+
+    // Posiciones anatómicas aproximadas para cada sala dentro de la silueta.
+    // Pixeles relativos al centro (cx, cy) en una caja ~190x240.
+    const POS = {
+      prefrontal:     { dx:   0, dy: -98 },
+      broca:          { dx: -68, dy: -52 },
+      parietal:       { dx:  62, dy: -45 },
+      hub_central:    { dx:   0, dy: -28 },
+      amigdala:       { dx: -54, dy:  20 },
+      hipocampo:      { dx:  56, dy:  22 },
+      hub_inferior:   { dx:   0, dy:  20 },
+      hub_posterior:  { dx:   0, dy:  62 },
+      occipital:      { dx:   0, dy: 100 },
+    };
+
+    // Conexiones (líneas neuronales tenues)
     const linesG = this.add.graphics();
-    linesG.lineStyle(2, 0xfbfaf7, 0.18);
-    for (const [id, room] of cells) {
-      const c = room.minimap;
-      const cx = startX + c.col * (cellSize + gap) + cellSize / 2;
-      const cy = startY + c.row * (cellSize + gap) + cellSize / 2;
+    for (const [id, room] of Object.entries(rooms)) {
+      const p = POS[id];
+      if (!p) continue;
       for (const dir of Object.keys(room.doors || {})) {
         const dest = rooms[room.doors[dir]];
         if (!dest) continue;
-        const dx = startX + dest.minimap.col * (cellSize + gap) + cellSize / 2;
-        const dy = startY + dest.minimap.row * (cellSize + gap) + cellSize / 2;
-        linesG.lineBetween(cx, cy, dx, dy);
+        const pd = POS[room.doors[dir]];
+        if (!pd) continue;
+        linesG.lineStyle(2, 0xfbfaf7, 0.25);
+        linesG.lineBetween(cx + p.dx, cy + p.dy, cx + pd.dx, cy + pd.dy);
       }
     }
 
     this.minimapCells = {};
-    for (const [id, room] of cells) {
-      const c = room.minimap;
-      const x = startX + c.col * (cellSize + gap);
-      const y = startY + c.row * (cellSize + gap);
+    for (const [id, room] of Object.entries(rooms)) {
+      const p = POS[id];
+      if (!p) continue;
+      const x = cx + p.dx;
+      const y = cy + p.dy;
 
       const baseColor = room.regionId
         ? CONFIG.regiones[room.regionId].color
-        : 0xa8b8d8;
+        : 0x88a4dd;
+      const radio = room.regionId ? 9 : 6;
 
-      const cell = this.add.rectangle(x + cellSize / 2, y + cellSize / 2, cellSize, cellSize, baseColor, 0.25)
-        .setStrokeStyle(2, baseColor, 0.7);
+      const cell = this.add.circle(x, y, radio, baseColor, 0.5)
+        .setStrokeStyle(2, baseColor, 0.85);
 
-      // Marcador de "tu sala" — anillo blanco más grande detrás
-      const youRing = this.add.circle(x + cellSize / 2, y + cellSize / 2, cellSize / 2 + 5, 0xfbfaf7, 0)
+      // Marcador de "tu sala" — anillo blanco pulsante
+      const youRing = this.add.circle(x, y, radio + 6, 0xfbfaf7, 0)
         .setStrokeStyle(2, 0xfbfaf7, 0);
 
-      this.minimapCells[id] = { cell, youRing, baseColor, regionId: room.regionId };
+      this.minimapCells[id] = { cell, youRing, baseColor, regionId: room.regionId, x, y, radio };
     }
 
     this._actualizarMinimapa(GameState.currentRoomId || CONFIG.mapa.startRoomId);
@@ -286,13 +303,25 @@ export class HudScene extends Phaser.Scene {
         c.cell.setFillStyle(c.baseColor, 1);
         c.cell.setStrokeStyle(2, 0xfbfaf7, 1);
       } else {
-        c.cell.setFillStyle(c.baseColor, 0.25);
-        c.cell.setStrokeStyle(2, c.baseColor, 0.7);
+        c.cell.setFillStyle(c.baseColor, 0.45);
+        c.cell.setStrokeStyle(2, c.baseColor, 0.85);
       }
       const isCurrent = id === currentRoomId;
-      c.youRing.setStrokeStyle(2, 0xfbfaf7, isCurrent ? 1 : 0);
+      c.youRing.setStrokeStyle(2, 0xfff7c2, isCurrent ? 1 : 0);
+
+      // Pulse del marcador "tu sala"
+      if (isCurrent) {
+        if (!c._pulseTween) {
+          c._pulseTween = this.tweens.add({
+            targets: c.youRing, scale: { from: 1, to: 1.45 }, alpha: { from: 1, to: 0 },
+            duration: 1200, repeat: -1, ease: 'Cubic.easeOut',
+          });
+        }
+      } else {
+        if (c._pulseTween) { c._pulseTween.stop(); c._pulseTween = null; }
+        c.youRing.setScale(1).setAlpha(0);
+      }
     }
-    // Etiqueta de sala actual
     const room = CONFIG.mapa.rooms[currentRoomId];
     if (room && this.salaActualLabel) {
       this.salaActualLabel.setText('Estás en: ' + room.nombre);
