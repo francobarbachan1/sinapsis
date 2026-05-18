@@ -70,6 +70,9 @@ export class MapScene extends Phaser.Scene {
     // Eventos
     this.events.off('wake');
     this.events.on('wake', () => {
+      // Defensivo: limpiar cualquier flag de transición que haya quedado pegado.
+      this._transitioning = false;
+      this.cameras.main.resetFX();
       // Al volver de una estación: recargar la sala actual (regiones iluminadas).
       this._cargarSala(GameState.currentRoomId, null /* no respawn */);
       this.scene.bringToTop('HudScene');
@@ -258,12 +261,16 @@ export class MapScene extends Phaser.Scene {
 
     // Zona overlap (si la región es la activa y no está resuelta)
     if (activa && !resuelta) {
-      this.stationZone = this.add.zone(cx, cy, 80, 80);
-      this.physics.add.existing(this.stationZone, false);
-      this.stationZone.body.setAllowGravity(false);
-      this.stationZone.body.setImmovable(true);
-      this._colliders.push(this.physics.add.overlap(this.avatar, this.stationZone, () => {
+      const zone = this.add.zone(cx, cy, 80, 80);
+      this.physics.add.existing(zone, false);
+      zone.body.setAllowGravity(false);
+      zone.body.setImmovable(true);
+      this.stationZone = zone;
+      this._colliders.push(this.physics.add.overlap(this.avatar, zone, () => {
         if (this.time.now < this._stationCooldownUntil) return;
+        if (this._transitioning) return;
+        if (!zone.body || !zone.body.enable) return;
+        zone.body.enable = false; // one-shot: bloquear re-disparo
         this._entrarEstacion(room.regionId);
       }));
     }
@@ -338,18 +345,36 @@ export class MapScene extends Phaser.Scene {
     const tintColor = dest && dest.regionId
       ? CONFIG.regiones[dest.regionId].color
       : 0x2e5fa3;
+    const tintHex = dest && dest.regionId
+      ? CONFIG.regiones[dest.regionId].colorHex
+      : '#2E5FA3';
 
-    // Marco visual de la puerta (arco)
+    // Marco visual de la puerta (rectángulo coloreado más sólido que en v2)
     const dr = lado.doorRect;
-    const door = this.add.rectangle(dr.x, dr.y, dr.w, dr.h, tintColor, 0.35)
-      .setStrokeStyle(2, tintColor, 0.85)
+    const door = this.add.rectangle(dr.x, dr.y, dr.w, dr.h, tintColor, 0.55)
+      .setStrokeStyle(3, tintColor, 1)
       .setDepth(1);
     this.roomLayer.add(door);
-    // Pulsación suave para indicar "esto es una puerta"
     this.tweens.add({
-      targets: door, alpha: { from: 0.25, to: 0.55 },
-      duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      targets: door, alpha: { from: 0.45, to: 0.75 },
+      duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
+
+    // Flecha apuntando hacia afuera (el sentido de la puerta)
+    const arrow = this._dibujarFlechaPuerta(dr, lado.dir, 0xffffff);
+    this.roomLayer.add(arrow);
+
+    // Etiqueta con el nombre del destino, fuera de la zona de paso
+    const lblPos = this._posLabelPuerta(dr, lado.dir);
+    const label = this.add.text(lblPos.x, lblPos.y, dest ? dest.nombre : '', {
+      fontFamily: 'sans-serif',
+      fontSize: '11px',
+      color: tintHex,
+      fontStyle: 'bold',
+      backgroundColor: '#fbfaf7cc',
+      padding: { x: 6, y: 2 },
+    }).setOrigin(lblPos.ox, lblPos.oy).setDepth(2);
+    this.roomLayer.add(label);
 
     // Zona overlap para trigger
     const zone = this.add.zone(dr.x, dr.y, dr.w, dr.h);
@@ -358,9 +383,39 @@ export class MapScene extends Phaser.Scene {
     zone.body.setImmovable(true);
     this._colliders.push(this.physics.add.overlap(this.avatar, zone, () => {
       if (this._transitioning) return;
+      if (!zone.body || !zone.body.enable) return;
+      zone.body.enable = false; // one-shot: no re-disparar la misma puerta
       this._cambiarSala(destRoomId, lado.dir);
     }));
     this.doorsGroup.add(zone);
+  }
+
+  _dibujarFlechaPuerta(dr, dir, color) {
+    const g = this.add.graphics();
+    g.fillStyle(color, 0.95);
+    const s = 12;
+    // Triángulo apuntando hacia afuera del lado
+    const cx = dr.x, cy = dr.y;
+    let p;
+    switch (dir) {
+      case 'north': p = [cx - s, cy + s/2, cx + s, cy + s/2, cx, cy - s]; break;
+      case 'south': p = [cx - s, cy - s/2, cx + s, cy - s/2, cx, cy + s]; break;
+      case 'east':  p = [cx - s/2, cy - s, cx - s/2, cy + s, cx + s, cy]; break;
+      case 'west':  p = [cx + s/2, cy - s, cx + s/2, cy + s, cx - s, cy]; break;
+    }
+    g.fillTriangle(p[0], p[1], p[2], p[3], p[4], p[5]);
+    g.setDepth(2);
+    return g;
+  }
+
+  _posLabelPuerta(dr, dir) {
+    switch (dir) {
+      case 'north': return { x: dr.x, y: dr.y + dr.h / 2 + 8, ox: 0.5, oy: 0 };
+      case 'south': return { x: dr.x, y: dr.y - dr.h / 2 - 8, ox: 0.5, oy: 1 };
+      case 'east':  return { x: dr.x - dr.w / 2 - 8, y: dr.y, ox: 1, oy: 0.5 };
+      case 'west':  return { x: dr.x + dr.w / 2 + 8, y: dr.y, ox: 0, oy: 0.5 };
+    }
+    return { x: dr.x, y: dr.y, ox: 0.5, oy: 0.5 };
   }
 
   _posicionarAvatarEnSpawn(room, spawnFromDoor) {
@@ -407,11 +462,15 @@ export class MapScene extends Phaser.Scene {
       sprite.body.setCircle(P.radio, sprite.width / 2 - P.radio, sprite.height / 2 - P.radio);
       sprite.body.setBounce(1, 1);
       sprite.body.setCollideWorldBounds(false);
-      // Velocidad aleatoria
+      // Velocidad inicial aleatoria
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
       const factor = 1 + (Math.random() * 2 - 1) * P.velocidadVariacion;
-      const v = P.velocidad * factor;
-      sprite.body.setVelocity(Math.cos(angle) * v, Math.sin(angle) * v);
+      const speed = P.velocidad * factor;
+      sprite.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+      sprite._baseSpeed = speed;
+      // Wander: próximo cambio de dirección
+      sprite._nextWander = this.time.now + Phaser.Math.Between(
+        P.wanderIntervaloMinMs, P.wanderIntervaloMaxMs);
 
       // Halo decorativo (en grupo para que se destruya con la sala)
       const halo = this.add.image(x, y, 'pulsoHalo').setDepth(4);
@@ -534,11 +593,20 @@ export class MapScene extends Phaser.Scene {
       this.avatarGlow.y = this.avatar.y;
     }
 
-    // Sync halos with pulses
+    // Sync halos con pulsos + wander de dirección
+    const P = CONFIG.pulsosEstres;
+    const now = time;
     this.pulsesGroup.children.iterate((p) => {
-      if (p && p._halo) {
-        p._halo.x = p.x;
-        p._halo.y = p.y;
+      if (!p) return;
+      if (p._halo) { p._halo.x = p.x; p._halo.y = p.y; }
+      if (p.body && p._nextWander && now >= p._nextWander) {
+        const vx = p.body.velocity.x, vy = p.body.velocity.y;
+        const mag = Math.hypot(vx, vy) || p._baseSpeed || P.velocidad;
+        const ang = Math.atan2(vy, vx);
+        const delta = (Math.random() * 2 - 1) * P.wanderAnguloMax;
+        const newAng = ang + delta;
+        p.body.setVelocity(Math.cos(newAng) * mag, Math.sin(newAng) * mag);
+        p._nextWander = now + Phaser.Math.Between(P.wanderIntervaloMinMs, P.wanderIntervaloMaxMs);
       }
     });
 

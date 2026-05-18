@@ -215,7 +215,7 @@ export const CONFIG = {
     salaW: 720,
     salaH: 720,
     grosorPared: 28,
-    anchoPuerta: 96,
+    anchoPuerta: 128, // hueco generoso para que el avatar no quede trabado al borde
     rooms: {
       prefrontal: {
         regionId: 'prefrontal',
@@ -240,7 +240,7 @@ export const CONFIG = {
         nombre: 'Pasaje central',
         doors: { north: 'prefrontal', east: 'parietal', west: 'broca', south: 'hub_inferior' },
         minimap: { col: 1, row: 1 },
-        pulsos: 3,
+        pulsos: 5,
       },
       amigdala: {
         regionId: 'amigdala',
@@ -259,14 +259,14 @@ export const CONFIG = {
         nombre: 'Pasaje profundo',
         doors: { north: 'hub_central', west: 'amigdala', east: 'hipocampo', south: 'hub_posterior' },
         minimap: { col: 1, row: 2 },
-        pulsos: 4,
+        pulsos: 7,
       },
       hub_posterior: {
         regionId: null,
         nombre: 'Pasaje posterior',
         doors: { north: 'hub_inferior', south: 'occipital' },
         minimap: { col: 1, row: 3 },
-        pulsos: 3,
+        pulsos: 5,
       },
       occipital: {
         regionId: 'occipital',
@@ -283,11 +283,16 @@ export const CONFIG = {
   // --------------------------------------------------------------------------
   pulsosEstres: {
     radio: 14,
-    velocidad: 140,            // px/s
-    velocidadVariacion: 0.35,   // ± 35 % de variación por pulso
-    duracionStunMs: 1400,       // cuánto dura la ralentización
-    factorVelocidadStun: 0.25,  // multiplicador a la velocidad máx mientras stun
-    cooldownColisionMs: 500,    // tiempo mínimo entre dos colisiones consecutivas
+    velocidad: 165,             // px/s — más ágiles que en v2 inicial
+    velocidadVariacion: 0.40,   // ± 40 % de variación por pulso
+    duracionStunMs: 1400,
+    factorVelocidadStun: 0.25,
+    cooldownColisionMs: 500,
+    // Wander: cada N ms cambian ligeramente de dirección. Hace los pulsos
+    // menos predecibles que un rebote lineal puro.
+    wanderIntervaloMinMs: 1400,
+    wanderIntervaloMaxMs: 2800,
+    wanderAnguloMax: Math.PI / 3, // ± 60° por giro
   },
 
   // --------------------------------------------------------------------------
