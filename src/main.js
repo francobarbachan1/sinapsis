@@ -22,7 +22,12 @@ const config = {
   height: CONFIG.alto,
   backgroundColor: CONFIG.ui.fondoHex,
   scale: {
-    mode: Phaser.Scale.FIT,
+    // ENVELOP: el canvas escala hasta llenar el viewport entero (sin
+    // letterbox), manteniendo el aspect 16:9 del juego. En monitores no-16:9
+    // hay un leve crop en los bordes del que la UI no depende — todo lo
+    // crítico (regiones del cerebro, HUD, cards) se mantiene en una "safe
+    // zone" central del 1280x720 lógico.
+    mode: Phaser.Scale.ENVELOP,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   physics: {
