@@ -71,31 +71,12 @@ export class OccipitalStation extends StationBase {
       color: '#5F5E5A',
     }).setOrigin(0.5);
 
-    // Paleta de colores disponibles (sin letras — la palabra se revela al acertar).
-    this.add.text(L.brainAreaW / 2, 120, 'COLORES', {
-      fontFamily: 'sans-serif',
-      fontSize: '11px',
-      color: '#5F5E5A',
-      fontStyle: 'bold',
-      letterSpacing: 2,
-    }).setOrigin(0.5);
-
-    // La clave NO muestra las letras (eso revelaría la palabra). Sólo
-    // muestra los colores disponibles. La asociación letra↔color se revela
-    // al acertar la secuencia: cada slot reconstruido correctamente muestra
-    // su letra.
-    const keys = Object.entries(this.mapaLetraColor);
-    const keyW = 56, keyH = 56, gap = 10;
-    const totalW = keys.length * keyW + (keys.length - 1) * gap;
-    const startX = (L.brainAreaW - totalW) / 2;
-    keys.forEach(([letra, c], i) => {
-      const cx = startX + i * (keyW + gap) + keyW / 2;
-      const cy = 168;
-      this.add.rectangle(cx, cy, keyW, keyH, c.color, 1).setStrokeStyle(2, 0x1f3864, 0.4);
-    });
+    // La clave de colores se sacó por pedido del usuario: la única
+    // referencia visual es la secuencia que aparece unos segundos.
+    // Esto fuerza memorización pura y sube la dificultad.
 
     // Zona secuencia
-    this.add.text(L.brainAreaW / 2, 230, 'SECUENCIA', {
+    this.add.text(L.brainAreaW / 2, 130, 'SECUENCIA A MEMORIZAR', {
       fontFamily: 'sans-serif',
       fontSize: '11px',
       color: '#5F5E5A',
@@ -103,10 +84,10 @@ export class OccipitalStation extends StationBase {
       letterSpacing: 2,
     }).setOrigin(0.5);
 
-    this.zonaSecuencia = this.add.container(L.brainAreaW / 2, 280);
+    this.zonaSecuencia = this.add.container(L.brainAreaW / 2, 200);
 
     // Línea de reconstrucción + letras reveladas
-    this.add.text(L.brainAreaW / 2, 360, 'TU RECONSTRUCCIÓN', {
+    this.add.text(L.brainAreaW / 2, 300, 'TU RECONSTRUCCIÓN', {
       fontFamily: 'sans-serif',
       fontSize: '11px',
       color: '#5F5E5A',
@@ -114,11 +95,11 @@ export class OccipitalStation extends StationBase {
       letterSpacing: 2,
     }).setOrigin(0.5);
 
-    this.zonaReconstruccion = this.add.container(L.brainAreaW / 2, 410);
+    this.zonaReconstruccion = this.add.container(L.brainAreaW / 2, 360);
     this._dibujarSlotsReconstruccion();
 
     // Botonera: paleta de colores para clicar
-    this.add.text(L.brainAreaW / 2, 510, 'Tocá los colores en orden:', {
+    this.add.text(L.brainAreaW / 2, 460, 'Tocá los colores en orden:', {
       fontFamily: 'sans-serif',
       fontSize: '13px',
       color: '#5F5E5A',
@@ -127,7 +108,7 @@ export class OccipitalStation extends StationBase {
     this._dibujarPaletaClicable();
 
     // Botón "ver secuencia de nuevo"
-    const btnY = 660;
+    const btnY = 620;
     const btn = this.add.rectangle(L.brainAreaW / 2, btnY, 220, 36, 0xffffff, 1)
       .setStrokeStyle(2, this.region.color, 1).setInteractive({ useHandCursor: true });
     this.add.text(L.brainAreaW / 2, btnY, 'Ver la secuencia de nuevo', {
@@ -170,7 +151,7 @@ export class OccipitalStation extends StationBase {
     const tileW = 56, tileH = 56, gap = 12;
     const totalW = n * tileW + (n - 1) * gap;
     const startX = (L.brainAreaW - totalW) / 2;
-    const y = 580;
+    const y = 530;
 
     this._paletaTiles = [];
     this.coloresUnicos.forEach((c, i) => {
@@ -258,7 +239,7 @@ export class OccipitalStation extends StationBase {
         this.time.delayedCall(700, () => {
           // Mostrar palabra grande
           const L = CONFIG.layout;
-          const palabraTxt = this.add.text(L.brainAreaW / 2, 480, this.palabra, {
+          const palabraTxt = this.add.text(L.brainAreaW / 2, 430, this.palabra, {
             fontFamily: 'sans-serif',
             fontSize: '46px',
             fontStyle: 'bold',

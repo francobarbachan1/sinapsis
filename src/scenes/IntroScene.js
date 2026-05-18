@@ -112,9 +112,9 @@ export class IntroScene extends Phaser.Scene {
     });
 
     // Neurona XL flotante a la derecha (decorativa)
-    const neuronaX = W - 130;
+    const neuronaX = W - 200;
     const neuronaY = H / 2 + 60;
-    const neurona = this.add.image(neuronaX, neuronaY, 'neuronaXL').setScale(0.85);
+    const neurona = this.add.image(neuronaX, neuronaY, 'neuronaXL').setScale(1.0);
     this.tweens.add({
       targets: neurona, scale: { from: 0.85, to: 0.92 },
       duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
@@ -150,8 +150,8 @@ export class IntroScene extends Phaser.Scene {
   // Cards
   // --------------------------------------------------------------------------
   _dibujarCards(W, H) {
-    const cardX = 70;
-    const cardW = 580;
+    const cardX = 80;
+    const cardW = 680;
 
     // Card 1: Tu rol / consigna
     this._tarjeta(cardX, 215, cardW, 180, 'TU ROL', CONFIG.textoApertura, '#ffe27a');
@@ -235,9 +235,9 @@ export class IntroScene extends Phaser.Scene {
   // Botón Comenzar (grande, con glow y pulse)
   // --------------------------------------------------------------------------
   _dibujarBotonComenzar(W, H) {
-    const cx = 360;
+    const cx = 420;
     const cy = H - 75;
-    const bw = 280, bh = 64;
+    const bw = 320, bh = 70;
 
     // Glow detrás del botón
     const glow = this.add.graphics();

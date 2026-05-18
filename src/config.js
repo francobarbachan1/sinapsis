@@ -198,7 +198,7 @@ export const CONFIG = {
     brainAreaW: 720,
     brainAreaH: 720,
     hudX: 720,
-    hudW: 304, // = 1024 - 720
+    hudW: 560, // = 1280 - 720 — HUD se ensancha al pasar a 16:9
   },
 
   // --------------------------------------------------------------------------
@@ -411,9 +411,11 @@ export const CONFIG = {
   },
 
   // --------------------------------------------------------------------------
-  // Dimensiones del canvas
+  // Dimensiones del canvas — 16:9 para encajar con monitores modernos.
+  // El brainArea (720x720) se mantiene; el HUD ocupa la columna derecha
+  // ensanchada hasta los 1280.
   // --------------------------------------------------------------------------
-  ancho: 1024,
+  ancho: 1280,
   alto: 720,
 };
 

@@ -65,13 +65,14 @@ export class HudScene extends Phaser.Scene {
       fontStyle: 'bold',
     });
 
-    // Cuerpo de la pista
+    // Cuerpo de la pista (limitamos el wrap a un ancho legible aunque el HUD
+    // sea más grande, para que las líneas no queden demasiado largas).
     this.pistaText = this.add.text(L.hudX + 24, 212, '', {
       fontFamily: 'sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       color: '#FBFAF7',
-      wordWrap: { width: L.hudW - 48 },
-      lineSpacing: 4,
+      wordWrap: { width: Math.min(L.hudW - 48, 460) },
+      lineSpacing: 5,
     });
 
     // Minimapa

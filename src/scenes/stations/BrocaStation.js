@@ -53,7 +53,7 @@ export class BrocaStation extends StationBase {
       }).setOrigin(0.5);
 
     // Línea de construcción
-    this.add.text(L.brainAreaW / 2, 134, 'TU FRASE', {
+    this.add.text(L.brainAreaW / 2, 132, 'TU FRASE', {
       fontFamily: 'sans-serif',
       fontSize: '11px',
       color: '#5F5E5A',
@@ -61,14 +61,14 @@ export class BrocaStation extends StationBase {
       letterSpacing: 2,
     }).setOrigin(0.5);
 
-    this.lineaBgY = 175;
-    this.lineaBg = this.add.rectangle(L.brainAreaW / 2, this.lineaBgY, L.brainAreaW - 80, 80, 0xffffff, 1)
+    this.lineaBgY = 195;
+    this.lineaBg = this.add.rectangle(L.brainAreaW / 2, this.lineaBgY, L.brainAreaW - 80, 100, 0xffffff, 1)
       .setStrokeStyle(2, this.region.color, 0.6);
 
     this.lineaContainer = this.add.container(L.brainAreaW / 2, this.lineaBgY);
 
     // Pool
-    this.add.text(L.brainAreaW / 2, 290, 'PALABRAS DISPONIBLES', {
+    this.add.text(L.brainAreaW / 2, 275, 'PALABRAS DISPONIBLES', {
       fontFamily: 'sans-serif',
       fontSize: '11px',
       color: '#5F5E5A',
@@ -76,10 +76,10 @@ export class BrocaStation extends StationBase {
       letterSpacing: 2,
     }).setOrigin(0.5);
 
-    this.poolContainer = this.add.container(L.brainAreaW / 2, 350);
+    this.poolContainer = this.add.container(L.brainAreaW / 2, 365);
 
     // Mensaje
-    this.mensaje = this.add.text(L.brainAreaW / 2, 580, '', {
+    this.mensaje = this.add.text(L.brainAreaW / 2, 545, '', {
       fontFamily: 'sans-serif',
       fontSize: '14px',
       color: this.region.colorHex,
@@ -87,7 +87,7 @@ export class BrocaStation extends StationBase {
     }).setOrigin(0.5);
 
     // Botón limpiar
-    const btnY = 620;
+    const btnY = 595;
     const btn = this.add.rectangle(L.brainAreaW / 2, btnY, 160, 32, 0xffffff, 1)
       .setStrokeStyle(2, this.region.color, 1).setInteractive({ useHandCursor: true });
     this.add.text(L.brainAreaW / 2, btnY, 'Limpiar línea', {

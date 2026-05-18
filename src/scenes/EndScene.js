@@ -34,11 +34,11 @@ export class EndScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Mini-cerebro a la izquierda
-    this._dibujarMiniCerebro(225, H / 2 + 30);
+    this._dibujarMiniCerebro(290, H / 2 + 30);
 
     // Layout derecha
-    const rightX = 480;
-    const rightW = 510;
+    const rightX = 600;
+    const rightW = 620;
 
     // Texto cierre
     this.add.text(rightX, 80, this.porTiempo ? CONFIG.textoFinDeTiempo : CONFIG.textoCierreCompleto, {

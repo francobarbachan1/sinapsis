@@ -34,11 +34,16 @@ export class PrefrontalStation extends StationBase {
   _dibujarPanelLateral() {
     // Pequeños indicadores de las 5 regiones (se "consolidan" al acertar)
     const L = CONFIG.layout;
-    this.add.text(L.brainAreaW / 2, 80, 'Reto de síntesis', {
+    // Agrupamos el panel lateral (header + markers) en un container para
+    // poder destruirlo cuando arranca el clímax y evitar superposiciones.
+    this.panelLateral = this.add.container(0, 0);
+
+    const head = this.add.text(L.brainAreaW / 2, 80, 'Reto de síntesis', {
       fontFamily: 'sans-serif',
       fontSize: '15px',
       color: '#5F5E5A',
     }).setOrigin(0.5);
+    this.panelLateral.add(head);
 
     const ids = this.preguntas.map((p) => p.regionId);
     const sz = 28, gap = 18;
@@ -53,6 +58,7 @@ export class PrefrontalStation extends StationBase {
       const lbl = this.add.text(cx, cy + sz / 2 + 12, r.nombre.split(' ')[0], {
         fontFamily: 'sans-serif', fontSize: '10px', color: '#5F5E5A',
       }).setOrigin(0.5);
+      this.panelLateral.add([c, lbl]);
       this.markers[id] = { circle: c, lbl, color: r.color };
     });
 
@@ -155,6 +161,14 @@ export class PrefrontalStation extends StationBase {
   // --------------------------------------------------------------------------
   _animacionConexiones() {
     this.preguntaContainer.removeAll(true);
+    // Destruir el panel lateral (header + markers) para que no se superponga
+    // con el clímax.
+    if (this.panelLateral) {
+      this.tweens.add({
+        targets: this.panelLateral, alpha: 0, duration: 250,
+        onComplete: () => { this.panelLateral.destroy(true); this.panelLateral = null; },
+      });
+    }
     const L = CONFIG.layout;
     const cx = L.brainAreaW / 2;
     const cy = L.brainAreaH / 2 + 30;
