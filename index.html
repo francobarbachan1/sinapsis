@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sinapsis</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #1F3864;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      overflow: auto;
+    }
+    #game {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    #game canvas {
+      display: block;
+      max-width: 100%;
+      height: auto !important;
+    }
+    .loading {
+      color: #FBFAF7;
+      font-size: 18px;
+      padding: 40px;
+      text-align: center;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body>
+  <div id="game"><div class="loading">Cargando Sinapsis…</div></div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
