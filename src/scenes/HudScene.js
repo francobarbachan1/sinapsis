@@ -29,6 +29,18 @@ export class HudScene extends Phaser.Scene {
       letterSpacing: 2,
     }).setOrigin(0.5, 0);
 
+    // Botón toggle de pantalla completa, en la esquina superior derecha del HUD
+    this._botonFullscreen(L.hudX + L.hudW - 30, 28);
+
+    // Atajo tecla F para toggle fullscreen
+    this.input.keyboard.off('keydown-F');
+    this.input.keyboard.on('keydown-F', () => {
+      try {
+        if (this.scale.isFullscreen) this.scale.stopFullscreen();
+        else this.scale.startFullscreen();
+      } catch (e) {}
+    });
+
     // Cronómetro
     this.add.text(L.hudX + L.hudW / 2, 58, 'TIEMPO', {
       fontFamily: 'sans-serif',
@@ -157,6 +169,46 @@ export class HudScene extends Phaser.Scene {
       this.game.events.off('sinapsis:refrescarHud', onRefresh);
       this.game.events.off('sinapsis:cambioSala', onSala);
       this.game.events.off('sinapsis:vidaCambio', onVida);
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Botón toggle pantalla completa
+  // --------------------------------------------------------------------------
+  _botonFullscreen(x, y) {
+    const w = 24, h = 24;
+    const bg = this.add.graphics();
+    const draw = (highlight) => {
+      bg.clear();
+      bg.fillStyle(highlight ? 0xffffff : 0xffffff, highlight ? 0.2 : 0.08);
+      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 4);
+      bg.lineStyle(1, 0xffffff, highlight ? 0.8 : 0.4);
+      bg.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 4);
+      // Ícono: 4 esquinitas tipo "expandir"
+      bg.lineStyle(2, 0xffffff, highlight ? 1 : 0.85);
+      const m = 5, len = 5;
+      // top-left
+      bg.lineBetween(x - w / 2 + m, y - h / 2 + m, x - w / 2 + m + len, y - h / 2 + m);
+      bg.lineBetween(x - w / 2 + m, y - h / 2 + m, x - w / 2 + m, y - h / 2 + m + len);
+      // top-right
+      bg.lineBetween(x + w / 2 - m, y - h / 2 + m, x + w / 2 - m - len, y - h / 2 + m);
+      bg.lineBetween(x + w / 2 - m, y - h / 2 + m, x + w / 2 - m, y - h / 2 + m + len);
+      // bottom-left
+      bg.lineBetween(x - w / 2 + m, y + h / 2 - m, x - w / 2 + m + len, y + h / 2 - m);
+      bg.lineBetween(x - w / 2 + m, y + h / 2 - m, x - w / 2 + m, y + h / 2 - m - len);
+      // bottom-right
+      bg.lineBetween(x + w / 2 - m, y + h / 2 - m, x + w / 2 - m - len, y + h / 2 - m);
+      bg.lineBetween(x + w / 2 - m, y + h / 2 - m, x + w / 2 - m, y + h / 2 - m - len);
+    };
+    draw(false);
+    const hit = this.add.zone(x, y, w, h).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    hit.on('pointerover', () => draw(true));
+    hit.on('pointerout', () => draw(false));
+    hit.on('pointerdown', () => {
+      try {
+        if (this.scale.isFullscreen) this.scale.stopFullscreen();
+        else this.scale.startFullscreen();
+      } catch (e) {}
     });
   }
 

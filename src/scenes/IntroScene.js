@@ -82,8 +82,9 @@ export class IntroScene extends Phaser.Scene {
   // Hero
   // --------------------------------------------------------------------------
   _dibujarHero(W, H) {
-    // Título "Sinapsis" con glow detrás
-    const titleY = 105;
+    // Título "Sinapsis" con glow detrás — bajado a y=145 para que en
+    // browsers windowed (con URL bar + bookmarks bar) no quede cropped.
+    const titleY = 145;
     const glow = this.add.text(W / 2, titleY, 'Sinapsis', {
       fontFamily: 'sans-serif', fontSize: '78px', fontStyle: 'bold',
       color: '#2e5fa3',
@@ -103,7 +104,7 @@ export class IntroScene extends Phaser.Scene {
     });
 
     // Tagline
-    const tag = this.add.text(W / 2, 160, 'Un recorrido por el cerebro cuando aprende', {
+    const tag = this.add.text(W / 2, 200, 'Un recorrido por el cerebro cuando aprende', {
       fontFamily: 'sans-serif', fontSize: '18px', fontStyle: 'italic',
       color: '#a8b8d8',
     }).setOrigin(0.5).setAlpha(0);
@@ -153,12 +154,12 @@ export class IntroScene extends Phaser.Scene {
     const cardX = 80;
     const cardW = 680;
 
-    // Card 1: Tu rol / consigna
-    this._tarjeta(cardX, 215, cardW, 180, 'TU ROL', CONFIG.textoApertura, '#ffe27a');
+    // Card 1: Tu rol / consigna — bajadas para entrar en safe zone
+    this._tarjeta(cardX, 250, cardW, 175, 'TU ROL', CONFIG.textoApertura, '#ffe27a');
 
     // Card 2: Controles (con chips visuales para teclas)
-    const c2y = 420;
-    this._tarjetaControles(cardX, c2y, cardW, 130);
+    const c2y = 445;
+    this._tarjetaControles(cardX, c2y, cardW, 120);
   }
 
   _tarjeta(x, y, w, h, header, body, accent) {
@@ -236,8 +237,8 @@ export class IntroScene extends Phaser.Scene {
   // --------------------------------------------------------------------------
   _dibujarBotonComenzar(W, H) {
     const cx = 420;
-    const cy = H - 75;
-    const bw = 320, bh = 70;
+    const cy = H - 105;
+    const bw = 320, bh = 64;
 
     // Glow detrás del botón
     const glow = this.add.graphics();
@@ -282,11 +283,23 @@ export class IntroScene extends Phaser.Scene {
     hit.on('pointerout', () => drawBtn(0x2e5fa3));
     hit.on('pointerdown', () => {
       drawBtn(0x1f3864);
+      // Aprovechamos el gesto del usuario para entrar en pantalla completa.
+      // Sin esto, el browser chrome (URL bar, etc.) corta los bordes en
+      // monitores 16:9 cuando se usa ENVELOP scale mode.
+      try {
+        if (!this.scale.isFullscreen) this.scale.startFullscreen();
+      } catch (e) { /* algunos browsers/iframes lo bloquean; no es crítico */ }
       this.cameras.main.fadeOut(360, 14, 30, 58);
       this.cameras.main.once('camerafadeoutcomplete', () => {
         this.scene.start('MapScene');
       });
     });
+
+    // Pequeño hint visual debajo del botón: "F11 también funciona"
+    this.add.text(cx, cy + bh / 2 + 22, 'Mejor experiencia en pantalla completa (F11)', {
+      fontFamily: 'sans-serif', fontSize: '12px', fontStyle: 'italic',
+      color: '#a8b8d8',
+    }).setOrigin(0.5).setAlpha(0.8);
   }
 }
 
