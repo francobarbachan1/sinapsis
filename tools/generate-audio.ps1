@@ -198,7 +198,7 @@ Write-Host "  - sting-logro.wav"
 # rhythm-1, rhythm-2, rhythm-3 — patrones rítmicos (Estación 3)
 # IMPORTANTE: NO etiquetar como "ondas alfa" ni frecuencias del aprendizaje
 # (Sección 16 del spec). Son notas de piano sintético neutras.
-# Timings DEBEN coincidir con PATRONES_MS en HipocampoStation.js.
+# Timings DEBEN coincidir con `dificultad.hipocampo.patrones` en config.js.
 # ----------------------------------------------------------------------------
 function Make-Rhythm([double[]]$timesMs, [string]$file) {
     $totalSec = ($timesMs[-1] / 1000.0) + 0.6
@@ -213,12 +213,13 @@ function Make-Rhythm([double[]]$timesMs, [string]$file) {
     [WavGen]::WriteWav((Out $file), $buf)
 }
 
-Make-Rhythm @(0, 500, 1000, 1500) "rhythm-1.wav"
-Write-Host "  - rhythm-1.wav"
-Make-Rhythm @(0, 450, 900, 1450, 1900) "rhythm-2.wav"
-Write-Host "  - rhythm-2.wav"
-Make-Rhythm @(0, 400, 800, 1300, 1700, 2100) "rhythm-3.wav"
-Write-Host "  - rhythm-3.wav"
+# v2: patrones más largos e irregulares (Sección 6.0 — público terciario).
+Make-Rhythm @(0, 350, 700, 1250, 1600) "rhythm-1.wav"
+Write-Host "  - rhythm-1.wav (5 golpes)"
+Make-Rhythm @(0, 300, 750, 1200, 1500, 1900, 2400) "rhythm-2.wav"
+Write-Host "  - rhythm-2.wav (7 golpes)"
+Make-Rhythm @(0, 350, 650, 1100, 1450, 1800, 2300, 2700, 3200) "rhythm-3.wav"
+Write-Host "  - rhythm-3.wav (9 golpes)"
 
 # ----------------------------------------------------------------------------
 # emotion-calma — ~4 s, acorde mayor sostenido y suave (C mayor, registro bajo)

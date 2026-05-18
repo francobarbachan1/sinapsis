@@ -20,6 +20,7 @@ export class EndScene extends Phaser.Scene {
     const W = CONFIG.ancho;
     const H = CONFIG.alto;
     this.cameras.main.setBackgroundColor(CONFIG.ui.fondoHex);
+    this.cameras.main.fadeIn(450, 31, 56, 100);
 
     // Título
     const tit = this.porTiempo ? 'El tiempo terminó' : 'Encendieron el cerebro completo';
@@ -73,9 +74,14 @@ export class EndScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5);
     btn.setInteractive({ useHandCursor: true });
+    btn.on('pointerover', () => btn.setFillStyle(0x1f3864, 1));
+    btn.on('pointerout', () => btn.setFillStyle(0x2e5fa3, 1));
     btn.on('pointerdown', () => {
-      GameState.reset();
-      this.scene.start('IntroScene');
+      this.cameras.main.fadeOut(350, 31, 56, 100);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        GameState.reset();
+        this.scene.start('IntroScene');
+      });
     });
   }
 
@@ -99,12 +105,17 @@ export class EndScene extends Phaser.Scene {
       const x = cx + dx;
       const y = cy + dy;
       const resuelta = GameState.esRegionResuelta(id);
+      let circle;
       if (resuelta) {
-        this.add.circle(x, y, r.radio * 0.55, r.color, 0.9).setStrokeStyle(2, r.color, 1);
+        circle = this.add.circle(x, y, r.radio * 0.55, r.color, 0.9).setStrokeStyle(2, r.color, 1);
+        // Latido sutil para que el cerebro se vea vivo
+        this.tweens.add({
+          targets: circle, scale: { from: 1, to: 1.08 },
+          duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
       } else {
-        this.add.circle(x, y, r.radio * 0.55, r.color, 0.15).setStrokeStyle(1, r.color, 0.5);
+        circle = this.add.circle(x, y, r.radio * 0.55, r.color, 0.15).setStrokeStyle(1, r.color, 0.5);
       }
-      // Etiqueta anatómica (visible si se logró)
       const lblColor = resuelta ? r.colorHex : '#9b988f';
       this.add.text(x, y + r.radio * 0.55 + 8, r.nombre, {
         fontFamily: 'sans-serif',

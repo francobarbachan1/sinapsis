@@ -145,60 +145,153 @@ export class PrefrontalStation extends StationBase {
   }
 
   // --------------------------------------------------------------------------
-  // Animación de cierre: líneas uniendo las 6 regiones → EndScene
+  // Clímax sinapsis (Sección 10.1): cerebro completo iluminándose y
+  // conexiones encendiéndose una tras otra.
   // --------------------------------------------------------------------------
   _animacionConexiones() {
     this.preguntaContainer.removeAll(true);
     const L = CONFIG.layout;
-
-    const head = this.add.text(L.brainAreaW / 2, 200, 'La corteza prefrontal se enciende', {
-      fontFamily: 'sans-serif',
-      fontSize: '20px',
-      color: this.region.colorHex,
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    // Mini-cerebro con conexiones
     const cx = L.brainAreaW / 2;
-    const cy = 460;
-    const radio = 140;
-    const regiones = Object.entries(CONFIG.regiones);
-    const positions = {};
-    regiones.forEach(([id, r], i) => {
-      const ang = (i / regiones.length) * Math.PI * 2 - Math.PI / 2;
-      const x = cx + Math.cos(ang) * radio;
-      const y = cy + Math.sin(ang) * radio;
-      positions[id] = { x, y, color: r.color };
-      this.add.circle(x, y, 18, r.color, 1).setStrokeStyle(2, 0xfbfaf7, 1);
-    });
+    const cy = L.brainAreaH / 2 + 30;
 
-    // Animar conexiones
-    const ids = Object.keys(positions);
-    let delay = 0;
-    const g = this.add.graphics();
-    g.setDefaultStyles({ lineStyle: { width: 2, color: 0x1f3864, alpha: 0.6 } });
+    // Oscurecer fondo
+    const veil = this.add.rectangle(0, 0, L.brainAreaW, L.brainAreaH, 0x1f3864, 0)
+      .setOrigin(0, 0).setDepth(5);
+    this.tweens.add({ targets: veil, alpha: 0.85, duration: 500 });
 
-    for (let i = 0; i < ids.length; i++) {
-      for (let j = i + 1; j < ids.length; j++) {
-        const a = positions[ids[i]];
-        const b = positions[ids[j]];
-        this.time.delayedCall(delay, () => {
-          g.lineStyle(2, 0x1f3864, 0.5);
-          g.lineBetween(a.x, a.y, b.x, b.y);
-        });
-        delay += 70;
-      }
+    // Silueta del cerebro
+    const brainG = this.add.graphics().setDepth(6);
+    const rx = 220, ry = 270;
+    brainG.fillStyle(0xf6e8e5, 1);
+    brainG.fillEllipse(cx, cy, rx * 2, ry * 2);
+    brainG.lineStyle(2, 0xc9a8a3, 1);
+    brainG.strokeEllipse(cx, cy, rx * 2, ry * 2);
+    brainG.setAlpha(0);
+    this.tweens.add({ targets: brainG, alpha: 1, duration: 500 });
+
+    // Posicionar las 6 regiones según CONFIG (escaladas al cerebro chico)
+    const baseW = L.brainAreaW;
+    const baseH = L.brainAreaH;
+    const scaleX = rx / 270;
+    const scaleY = ry / 320;
+    const nodes = {};
+    for (const [id, r] of Object.entries(CONFIG.regiones)) {
+      const dx = (r.x - baseW / 2) * scaleX;
+      const dy = (r.y - (baseH / 2 + 10)) * scaleY;
+      const x = cx + dx, y = cy + dy;
+      const node = this.add.circle(x, y, 16, r.color, 0.4)
+        .setStrokeStyle(2, r.color, 0.8).setDepth(8);
+      const label = this.add.text(x, y + 24, r.nombre.split(' ').slice(-1)[0], {
+        fontFamily: 'sans-serif', fontSize: '10px',
+        color: '#FFFFFF', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(8).setAlpha(0);
+      nodes[id] = { x, y, color: r.color, colorHex: r.colorHex, circle: node, label };
     }
 
-    this.time.delayedCall(delay + 600, () => {
-      // Marcar prefrontal como resuelta y pasar a EndScene
-      GameState.marcarResuelta(this.regionId);
+    // Texto guía
+    const head = this.add.text(cx, 80, 'La corteza prefrontal integra todo', {
+      fontFamily: 'sans-serif', fontSize: '22px',
+      color: this.region.colorHex, fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(8).setAlpha(0);
+    this.tweens.add({ targets: head, alpha: 1, duration: 400, delay: 300 });
+
+    // Secuencia: encender cada región con sting + glow.
+    const ordenEncendido = ['amigdala', 'occipital', 'hipocampo', 'parietal', 'broca', 'prefrontal'];
+    let t = 700;
+    const dtRegion = 250;
+    for (const id of ordenEncendido) {
+      this.time.delayedCall(t, () => {
+        const n = nodes[id];
+        n.circle.setFillStyle(n.color, 1).setStrokeStyle(3, 0xfbfaf7, 1);
+        // glow halo
+        const halo = this.add.circle(n.x, n.y, 16, n.color, 0.6).setDepth(7);
+        this.tweens.add({
+          targets: halo, scale: 3, alpha: 0, duration: 700,
+          ease: 'Cubic.easeOut', onComplete: () => halo.destroy(),
+        });
+        this.tweens.add({ targets: n.label, alpha: 1, duration: 220 });
+        if (this.sm) this.sm.playSting();
+      });
+      t += dtRegion;
+    }
+
+    // Mensaje "conectando"
+    this.time.delayedCall(t + 200, () => {
+      head.setText('El cerebro se conecta');
+      this.tweens.add({
+        targets: head, scale: { from: 0.95, to: 1.05 },
+        duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      });
+    });
+
+    // Dibujar conexiones con "impulso" recorriéndolas
+    const ids = Object.keys(nodes);
+    const conexiones = [];
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        conexiones.push([ids[i], ids[j]]);
+      }
+    }
+    Phaser.Utils.Array.Shuffle(conexiones);
+
+    const linesG = this.add.graphics().setDepth(7);
+    const dtConex = 120;
+    let connStart = t + 500;
+    for (let i = 0; i < conexiones.length; i++) {
+      const [a, b] = conexiones[i];
+      this.time.delayedCall(connStart + i * dtConex, () => {
+        this._dibujarSinapsis(linesG, nodes[a], nodes[b]);
+      });
+    }
+
+    // Flash final + transición
+    const totalConex = conexiones.length * dtConex;
+    this.time.delayedCall(connStart + totalConex + 600, () => {
+      // Sting + resolution
       if (this.sm) { this.sm.playSting(); this.sm.playResolution(); }
-      this.time.delayedCall(1000, () => {
+      // Flash blanco
+      const flash = this.add.rectangle(0, 0, L.brainAreaW, L.brainAreaH, 0xffffff, 0)
+        .setOrigin(0, 0).setDepth(20);
+      this.tweens.add({
+        targets: flash, alpha: { from: 0, to: 0.9 },
+        duration: 250, yoyo: true,
+      });
+      this.cameras.main.shake(280, 0.005);
+      // Marcar prefrontal resuelta
+      GameState.marcarResuelta(this.regionId);
+    });
+
+    this.time.delayedCall(connStart + totalConex + 1700, () => {
+      // Fade out + EndScene
+      this.cameras.main.fadeOut(450, 31, 56, 100);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
         this.scene.stop();
         this.scene.stop('HudScene');
         this.scene.start('EndScene', { porTiempo: false });
       });
+    });
+  }
+
+  // Una conexión = línea estable + un "impulso" (punto brillante) recorriéndola.
+  _dibujarSinapsis(linesG, a, b) {
+    // Línea base
+    linesG.lineStyle(1.5, 0xfbfaf7, 0.35);
+    linesG.lineBetween(a.x, a.y, b.x, b.y);
+    // Impulso viajando de a a b
+    const dot = this.add.circle(a.x, a.y, 4, 0xfff7c2, 1)
+      .setStrokeStyle(2, 0xffe27a, 1).setDepth(9);
+    this.tweens.add({
+      targets: dot, x: b.x, y: b.y,
+      duration: 380, ease: 'Cubic.easeInOut',
+      onComplete: () => {
+        // pulso en destino
+        const pulse = this.add.circle(b.x, b.y, 8, 0xfff7c2, 0.8).setDepth(9);
+        this.tweens.add({
+          targets: pulse, scale: 2.5, alpha: 0, duration: 350,
+          onComplete: () => pulse.destroy(),
+        });
+        dot.destroy();
+      },
     });
   }
 }

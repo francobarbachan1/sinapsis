@@ -39,6 +39,9 @@ export class StationBase extends Phaser.Scene {
     this._inicioMs = this.time.now;
     this._huboProgreso = false;
 
+    // Fade-in al entrar
+    this.cameras.main.fadeIn(280, 251, 250, 247);
+
     // Fondo del área de trabajo con color suave de la región
     this.add.rectangle(0, 0, L.brainAreaW, L.brainAreaH, r.fondoSuave, 1).setOrigin(0, 0);
 
@@ -97,13 +100,16 @@ export class StationBase extends Phaser.Scene {
       this.sm.playResolution();
     }
 
-    // Animación de la región iluminándose dentro de la estación
+    // Animación de la región iluminándose dentro de la estación, luego fade.
     this._animacionResolucion(() => {
       GameState.marcarResuelta(this.regionId);
-      this.scene.stop();
-      this.scene.wake('MapScene');
-      this.game.events.emit('sinapsis:refrescarHud');
-      this.game.events.emit('sinapsis:regionResuelta', this.regionId);
+      this.cameras.main.fadeOut(280, 251, 250, 247);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.stop();
+        this.scene.wake('MapScene');
+        this.game.events.emit('sinapsis:refrescarHud');
+        this.game.events.emit('sinapsis:regionResuelta', this.regionId);
+      });
     });
   }
 

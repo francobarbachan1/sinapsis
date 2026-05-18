@@ -15,8 +15,9 @@ export class IntroScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
 
-    // Fondo
+    // Fondo + fade-in
     this.cameras.main.setBackgroundColor(CONFIG.ui.fondoHex);
+    this.cameras.main.fadeIn(320, 251, 250, 247);
 
     // Título
     this.add.text(width / 2, 110, 'Sinapsis', {
@@ -100,8 +101,10 @@ export class IntroScene extends Phaser.Scene {
       g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 12);
     });
     hit.on('pointerdown', () => {
-      this.scene.start('MapScene');
-      this.scene.launch('HudScene');
+      this.cameras.main.fadeOut(320, 31, 56, 100);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('MapScene');
+      });
     });
 
     return { g, txt, hit };

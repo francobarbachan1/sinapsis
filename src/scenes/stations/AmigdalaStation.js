@@ -15,13 +15,16 @@ const FRAGMENTOS = [
   { id: 'tristeza', audioKey: 'emotionTristeza', etiqueta: 'Tristeza' },
 ];
 
+// Distractor: una etiqueta sobra. No corresponde a ningún fragmento.
+// (Sube la dificultad cognitiva — sección 6.0.)
+
 export class AmigdalaStation extends StationBase {
   constructor() {
     super('AmigdalaStation', 'amigdala');
   }
 
   consignaTexto() {
-    return 'Escuchá cada fragmento (clic en el ▶) y arrastrá la etiqueta de la emoción que le corresponde. Si te equivocás, la etiqueta vuelve a su lugar.';
+    return 'Escuchá cada fragmento (clic en el ▶) y arrastrá la etiqueta de la emoción que le corresponde. Hay una etiqueta que sobra — no pertenece a ningún fragmento. Si te equivocás, la etiqueta vuelve a su lugar.';
   }
 
   construirContenido() {
@@ -51,18 +54,25 @@ export class AmigdalaStation extends StationBase {
       return this._crearFragmento(f, cx, fragY, fragW, fragH, i + 1);
     });
 
-    // Etiquetas (drag) — 4 en fila debajo
-    const lblY = 460;
-    const lblW = 130, lblH = 50;
-    const ordenEtiquetas = Phaser.Utils.Array.Shuffle([...FRAGMENTOS]);
+    // Etiquetas (drag) — 5 en fila: las 4 correctas + 1 distractora.
+    // El distractor no asocia a ningún fragmento (Sección 6.0).
+    const distractorNombre = CONFIG.dificultad.amigdala.emocionDistractora;
+    const distractor = { id: '__distractor__', audioKey: null, etiqueta: distractorNombre };
 
-    this.etiquetas = ordenEtiquetas.map((f, i) => {
-      const cx = startX + lblW / 2 + i * (lblW + gap);
+    const lblY = 460;
+    const lblW = 116, lblH = 48;
+    const lblGap = 22;
+    const todasEtiquetas = Phaser.Utils.Array.Shuffle([...FRAGMENTOS, distractor]);
+    const totalLblW = todasEtiquetas.length * lblW + (todasEtiquetas.length - 1) * lblGap;
+    const startLblX = (L.brainAreaW - totalLblW) / 2;
+
+    this.etiquetas = todasEtiquetas.map((f, i) => {
+      const cx = startLblX + lblW / 2 + i * (lblW + lblGap);
       return this._crearEtiqueta(f, cx, lblY, lblW, lblH);
     });
 
     this.add.text(L.brainAreaW / 2, 530,
-      'Arrastrá cada etiqueta a su fragmento.',
+      'Arrastrá cada etiqueta a su fragmento. Una sobra.',
       {
         fontFamily: 'sans-serif',
         fontSize: '13px',

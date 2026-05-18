@@ -12,12 +12,16 @@ export const GameState = {
   indicePistaActiva: 0,           // 0..5 → cuál pista está vigente
   tiempoRestante: CONFIG.tiempoTotalSegundos,
   juegoBloqueadoPorTiempo: false,
+  currentRoomId: CONFIG.mapa.startRoomId, // sala actual del avatar
+  spawnFromDoor: null,            // de qué puerta venimos (para spawnear del otro lado)
 
   reset() {
     this.regionesResueltas = [];
     this.indicePistaActiva = 0;
     this.tiempoRestante = CONFIG.tiempoTotalSegundos;
     this.juegoBloqueadoPorTiempo = false;
+    this.currentRoomId = CONFIG.mapa.startRoomId;
+    this.spawnFromDoor = null;
   },
 
   pistaActiva() {

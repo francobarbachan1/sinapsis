@@ -8,7 +8,8 @@
 import { CONFIG } from '../../config.js';
 import { StationBase } from './StationBase.js';
 
-// Paleta de colores para las letras (suficientes para palabras de 6+ letras únicas)
+// Paleta de colores para las letras (alcanza para palabras con hasta ~10
+// letras únicas — soporta la palabra harder por default "APRENDIZAJE").
 const PALETA = [
   { color: 0xe06b6b, hex: '#E06B6B', nombre: 'rojo' },
   { color: 0xf2a93b, hex: '#F2A93B', nombre: 'naranja' },
@@ -18,6 +19,8 @@ const PALETA = [
   { color: 0xf48fb1, hex: '#F48FB1', nombre: 'rosa' },
   { color: 0x8d6e63, hex: '#8D6E63', nombre: 'marrón' },
   { color: 0xffd54f, hex: '#FFD54F', nombre: 'amarillo' },
+  { color: 0x26a69a, hex: '#26A69A', nombre: 'turquesa' },
+  { color: 0xab47bc, hex: '#AB47BC', nombre: 'lila' },
 ];
 
 export class OccipitalStation extends StationBase {
@@ -198,7 +201,7 @@ export class OccipitalStation extends StationBase {
     const bar = this.add.rectangle(-barW / 2, 36, barW, 6, this.region.color, 1).setOrigin(0, 0.5);
     this.zonaSecuencia.add([barBg, bar]);
 
-    const duracionMs = 3500;
+    const duracionMs = CONFIG.dificultad.occipital.tiempoMostrarSecuenciaMs;
     this.tweens.add({
       targets: bar,
       scaleX: 0,

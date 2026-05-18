@@ -58,20 +58,42 @@ export class HudScene extends Phaser.Scene {
     // Cuerpo de la pista
     this.pistaText = this.add.text(L.hudX + 24, 196, '', {
       fontFamily: 'sans-serif',
-      fontSize: '15px',
+      fontSize: '14px',
       color: '#FBFAF7',
       wordWrap: { width: L.hudW - 48 },
       lineSpacing: 4,
     });
 
-    // Marcador de regiones (al fondo)
-    this.progresoY = H - 130;
-    this.add.rectangle(L.hudX + 24, this.progresoY - 14, L.hudW - 48, 1, 0xfbfaf7, 0.2).setOrigin(0, 0);
-    this.add.text(L.hudX + 24, this.progresoY, 'REGIONES ENCENDIDAS', {
+    // Minimapa
+    const miniY = 380;
+    this.add.rectangle(L.hudX + 24, miniY - 16, L.hudW - 48, 1, 0xfbfaf7, 0.2).setOrigin(0, 0);
+    this.add.text(L.hudX + 24, miniY, 'MAPA DEL CEREBRO', {
       fontFamily: 'sans-serif',
       fontSize: '11px',
       color: '#A8B8D8',
       fontStyle: 'bold',
+      letterSpacing: 2,
+    });
+
+    this._dibujarMinimapa(L.hudX, miniY + 24);
+
+    // Indicador "tu sala" pequeño
+    this.salaActualLabel = this.add.text(L.hudX + L.hudW / 2, miniY + 240, '', {
+      fontFamily: 'sans-serif',
+      fontSize: '11px',
+      color: '#FBFAF7',
+      fontStyle: 'italic',
+    }).setOrigin(0.5, 0);
+
+    // Marcador de regiones (al fondo, compacto)
+    this.progresoY = H - 78;
+    this.add.rectangle(L.hudX + 24, this.progresoY - 14, L.hudW - 48, 1, 0xfbfaf7, 0.2).setOrigin(0, 0);
+    this.add.text(L.hudX + 24, this.progresoY, 'REGIONES', {
+      fontFamily: 'sans-serif',
+      fontSize: '11px',
+      color: '#A8B8D8',
+      fontStyle: 'bold',
+      letterSpacing: 2,
     });
 
     this.regionMarkers = {};
@@ -80,8 +102,8 @@ export class HudScene extends Phaser.Scene {
     ids.forEach((id, i) => {
       const r = CONFIG.regiones[id];
       const cx = L.hudX + 30 + slotW * i + slotW / 2;
-      const cy = this.progresoY + 36;
-      const dot = this.add.circle(cx, cy, 12, r.color, 0.25).setStrokeStyle(2, r.color, 0.7);
+      const cy = this.progresoY + 30;
+      const dot = this.add.circle(cx, cy, 9, r.color, 0.25).setStrokeStyle(2, r.color, 0.7);
       this.regionMarkers[id] = dot;
     });
 
@@ -100,23 +122,111 @@ export class HudScene extends Phaser.Scene {
     const onPausa = () => { this._corre = false; };
     const onReanudar = () => { this._corre = true; };
     const onRefresh = () => this.refresh();
+    const onSala = (id) => this._actualizarMinimapa(id);
 
     this.game.events.off('sinapsis:regionResuelta');
     this.game.events.off('sinapsis:pausarTiempo');
     this.game.events.off('sinapsis:reanudarTiempo');
     this.game.events.off('sinapsis:refrescarHud');
+    this.game.events.off('sinapsis:cambioSala');
 
     this.game.events.on('sinapsis:regionResuelta', onRegion);
     this.game.events.on('sinapsis:pausarTiempo', onPausa);
     this.game.events.on('sinapsis:reanudarTiempo', onReanudar);
     this.game.events.on('sinapsis:refrescarHud', onRefresh);
+    this.game.events.on('sinapsis:cambioSala', onSala);
 
     this.events.once('shutdown', () => {
       this.game.events.off('sinapsis:regionResuelta', onRegion);
       this.game.events.off('sinapsis:pausarTiempo', onPausa);
       this.game.events.off('sinapsis:reanudarTiempo', onReanudar);
       this.game.events.off('sinapsis:refrescarHud', onRefresh);
+      this.game.events.off('sinapsis:cambioSala', onSala);
     });
+  }
+
+  // --------------------------------------------------------------------------
+  // Minimapa (Sección 5.4)
+  // --------------------------------------------------------------------------
+  _dibujarMinimapa(hudX, baseY) {
+    const L = CONFIG.layout;
+    const rooms = CONFIG.mapa.rooms;
+    const cells = Object.entries(rooms);
+
+    // Determinar bounds del grid
+    let maxCol = 0, maxRow = 0;
+    for (const [, r] of cells) {
+      if (r.minimap.col > maxCol) maxCol = r.minimap.col;
+      if (r.minimap.row > maxRow) maxRow = r.minimap.row;
+    }
+    const cellSize = 30, gap = 5;
+    const gridW = (maxCol + 1) * cellSize + maxCol * gap;
+    const gridH = (maxRow + 1) * cellSize + maxRow * gap;
+    const startX = hudX + (L.hudW - gridW) / 2;
+    const startY = baseY;
+
+    // Conectores entre puertas (líneas tenues)
+    const linesG = this.add.graphics();
+    linesG.lineStyle(2, 0xfbfaf7, 0.18);
+    for (const [id, room] of cells) {
+      const c = room.minimap;
+      const cx = startX + c.col * (cellSize + gap) + cellSize / 2;
+      const cy = startY + c.row * (cellSize + gap) + cellSize / 2;
+      for (const dir of Object.keys(room.doors || {})) {
+        const dest = rooms[room.doors[dir]];
+        if (!dest) continue;
+        const dx = startX + dest.minimap.col * (cellSize + gap) + cellSize / 2;
+        const dy = startY + dest.minimap.row * (cellSize + gap) + cellSize / 2;
+        linesG.lineBetween(cx, cy, dx, dy);
+      }
+    }
+
+    this.minimapCells = {};
+    for (const [id, room] of cells) {
+      const c = room.minimap;
+      const x = startX + c.col * (cellSize + gap);
+      const y = startY + c.row * (cellSize + gap);
+
+      const baseColor = room.regionId
+        ? CONFIG.regiones[room.regionId].color
+        : 0xa8b8d8;
+
+      const cell = this.add.rectangle(x + cellSize / 2, y + cellSize / 2, cellSize, cellSize, baseColor, 0.25)
+        .setStrokeStyle(2, baseColor, 0.7);
+
+      // Marcador de "tu sala" — anillo blanco más grande detrás
+      const youRing = this.add.circle(x + cellSize / 2, y + cellSize / 2, cellSize / 2 + 5, 0xfbfaf7, 0)
+        .setStrokeStyle(2, 0xfbfaf7, 0);
+
+      this.minimapCells[id] = { cell, youRing, baseColor, regionId: room.regionId };
+    }
+
+    this._actualizarMinimapa(GameState.currentRoomId || CONFIG.mapa.startRoomId);
+  }
+
+  _actualizarMinimapa(currentRoomId) {
+    if (!this.minimapCells) return;
+    for (const [id, c] of Object.entries(this.minimapCells)) {
+      const resuelta = c.regionId && this._regionResueltaEnEstado(c.regionId);
+      if (resuelta) {
+        c.cell.setFillStyle(c.baseColor, 1);
+        c.cell.setStrokeStyle(2, 0xfbfaf7, 1);
+      } else {
+        c.cell.setFillStyle(c.baseColor, 0.25);
+        c.cell.setStrokeStyle(2, c.baseColor, 0.7);
+      }
+      const isCurrent = id === currentRoomId;
+      c.youRing.setStrokeStyle(2, 0xfbfaf7, isCurrent ? 1 : 0);
+    }
+    // Etiqueta de sala actual
+    const room = CONFIG.mapa.rooms[currentRoomId];
+    if (room && this.salaActualLabel) {
+      this.salaActualLabel.setText('Estás en: ' + room.nombre);
+    }
+  }
+
+  _regionResueltaEnEstado(regionId) {
+    return GameState.esRegionResuelta(regionId);
   }
 
   update(_time, delta) {
@@ -172,6 +282,9 @@ export class HudScene extends Phaser.Scene {
         dot.setStrokeStyle(2, r.color, 0.7);
       }
     }
+
+    // Refrescar minimapa también (regiones resueltas, sala actual)
+    this._actualizarMinimapa(GameState.currentRoomId);
   }
 
   _onRegionResuelta(regionId) {

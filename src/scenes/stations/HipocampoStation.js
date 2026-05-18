@@ -11,15 +11,10 @@
 import { CONFIG } from '../../config.js';
 import { StationBase } from './StationBase.js';
 
-// Patrones definidos en código (timing relativo en ms). Las pistas de audio
-// rhythm-N son una demostración auditiva del mismo patrón.
-const PATRONES_MS = {
-  4: [0, 500, 1000, 1500],
-  5: [0, 450, 900, 1450, 1900],
-  6: [0, 400, 800, 1300, 1700, 2100],
-};
-
-const AUDIO_KEY = { 4: 'rhythm1', 5: 'rhythm2', 6: 'rhythm3' };
+// Patrones por ronda — vienen de config.dificultad.hipocampo.patrones.
+// Los WAV rhythm-1/2/3 se regeneran para calzar con estos timings
+// (ver tools/generate-audio.ps1).
+const AUDIO_KEYS = ['rhythm1', 'rhythm2', 'rhythm3'];
 
 export class HipocampoStation extends StationBase {
   constructor() {
@@ -32,7 +27,8 @@ export class HipocampoStation extends StationBase {
 
   construirContenido() {
     const L = CONFIG.layout;
-    this.rondas = CONFIG.rondasHipocampo.slice();
+    this.patrones = CONFIG.dificultad.hipocampo.patrones;
+    this.rondas = this.patrones.map((p) => p.length); // [5, 7, 9] por ejemplo
     this.rondaActual = 0;
 
     this.add.text(L.brainAreaW / 2, 80, 'Escuchá y reproducí el patrón', {
@@ -118,14 +114,13 @@ export class HipocampoStation extends StationBase {
   }
 
   _reproducirRondaActual() {
-    const golpes = this.rondas[this.rondaActual];
-    const patron = PATRONES_MS[golpes];
+    const patron = this.patrones[this.rondaActual];
     this.estado = 'escuchando';
     this.estadoTxt.setText('Escuchá…');
     this._iluminarBeats(false);
 
     // Reproducir audio (si está disponible)
-    if (this.sm) this.sm.playOneShot(AUDIO_KEY[golpes], CONFIG.audio.volumenRitmo);
+    if (this.sm) this.sm.playOneShot(AUDIO_KEYS[this.rondaActual], CONFIG.audio.volumenRitmo);
 
     // Visualizador sincronizado con el patrón
     patron.forEach((t, i) => {
@@ -167,8 +162,7 @@ export class HipocampoStation extends StationBase {
     if (this.estado !== 'reproduciendo') return;
     this.marcarProgreso();
 
-    const golpes = this.rondas[this.rondaActual];
-    const patron = PATRONES_MS[golpes];
+    const patron = this.patrones[this.rondaActual];
 
     const now = this.time.now;
     if (this.t0Tap === null) this.t0Tap = now;
@@ -193,8 +187,7 @@ export class HipocampoStation extends StationBase {
 
   _evaluar() {
     this.estado = 'evaluando';
-    const golpes = this.rondas[this.rondaActual];
-    const patron = PATRONES_MS[golpes];
+    const patron = this.patrones[this.rondaActual];
     const tol = CONFIG.toleranciaTimingMs;
 
     let ok = true;
