@@ -1,13 +1,24 @@
 // ============================================================================
 // Estación 5 — Área de Broca (Lenguaje)
-// Frase clave desordenada + distractores. El jugador arma la frase haciendo
-// clic en las fichas (clic en pool = agregar a la línea; clic en la línea =
-// devolver al pool). Distractores quedan afuera.
+// Reconstruir una frase del curso. Hay varias variantes válidas (config:
+// dificultad.broca.frasesValidas) — la validación ignora tildes, mayúsculas
+// y signos de puntuación. Pistas progresivas aparecen con el tiempo si el
+// equipo no resuelve.
 // ============================================================================
 
 import { CONFIG } from '../../config.js';
 import { GameState } from '../../state.js';
 import { StationBase } from './StationBase.js';
+
+// Normaliza una frase para compararla: minúsculas, sin tildes, sin signos.
+function normalizar(s) {
+  return s
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')  // strip diacríticos
+    .replace(/[¿?¡!,.;:"'()\-—–]/g, '')      // strip puntuación
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export class BrocaStation extends StationBase {
   constructor() {
@@ -15,23 +26,24 @@ export class BrocaStation extends StationBase {
   }
 
   consignaTexto() {
-    return 'Es una frase exacta del curso sobre la relación entre emoción y aprendizaje. Tiene 9 palabras, empieza con "No" y termina con "siente". Reconstruila haciendo clic en las palabras en el orden correcto. Algunas palabras del pool son distractoras — quedan afuera.';
+    return 'Hay una frase del curso que conecta emoción y aprendizaje. Pueden armarla con varias formulaciones equivalentes — el sistema acepta cualquiera que conserve el sentido. Hay palabras de más (distractoras): quedan afuera. Si se traban, van a ir apareciendo pistas con el paso del tiempo.';
   }
 
   construirContenido() {
     const L = CONFIG.layout;
 
-    this.fraseObjetivo = CONFIG.fraseBroca.trim();
-    this.palabrasObjetivo = this.fraseObjetivo.split(/\s+/);
-    this.distractores = CONFIG.distractoresBroca.slice();
+    const cfgBroca = CONFIG.dificultad.broca;
+    this.frasesValidas = cfgBroca.frasesValidas.map(normalizar);
+    this.pistasProgresivas = cfgBroca.pistasProgresivas.slice();
+    this._pistasMostradas = 0;
+    this._tInicioMs = null; // se setea en iniciarJuego()
 
-    // Pool: palabras objetivo + distractores, shuffled
-    const pool = [
-      ...this.palabrasObjetivo.map((p) => ({ texto: p, esDistractor: false })),
-      ...this.distractores.map((p) => ({ texto: p, esDistractor: true })),
-    ];
-    this.pool = Phaser.Utils.Array.Shuffle(pool);
-    this.linea = []; // {texto, esDistractor, refIdxPool}
+    // Pool: palabras del pool + distractores (en objetos distintos para
+    // permitir duplicados, ej. dos "no" y dos "se").
+    const palabras = cfgBroca.palabrasPool.map((p) => ({ texto: p, esDistractor: false }));
+    const distractores = cfgBroca.distractores.map((p) => ({ texto: p, esDistractor: true }));
+    this.pool = Phaser.Utils.Array.Shuffle([...palabras, ...distractores]);
+    this.linea = [];
 
     this.add.text(L.brainAreaW / 2, 80, 'Armá una frase con sentido', {
       fontFamily: 'sans-serif',
@@ -39,12 +51,9 @@ export class BrocaStation extends StationBase {
       color: '#5F5E5A',
     }).setOrigin(0.5);
 
-    // Pista de estructura: cuántas palabras + primera y última como anclaje
-    const total = this.palabrasObjetivo.length;
-    const primera = this.palabrasObjetivo[0];
-    const ultima = this.palabrasObjetivo[total - 1];
+    // Pista inicial (sin chivar la frase exacta): cuántas variantes hay + tema.
     this.add.text(L.brainAreaW / 2, 106,
-      `${total} palabras  ·  empieza con "${primera}"  ·  termina con "${ultima}"`,
+      `${this.frasesValidas.length} formas válidas  ·  todas dicen lo mismo sobre emoción y aprendizaje`,
       {
         fontFamily: 'sans-serif',
         fontSize: '13px',
@@ -79,15 +88,18 @@ export class BrocaStation extends StationBase {
     this.poolContainer = this.add.container(L.brainAreaW / 2, 365);
 
     // Mensaje
-    this.mensaje = this.add.text(L.brainAreaW / 2, 545, '', {
+    this.mensaje = this.add.text(L.brainAreaW / 2, 510, '', {
       fontFamily: 'sans-serif',
       fontSize: '14px',
       color: this.region.colorHex,
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
+    // Panel de pistas progresivas (debajo del mensaje, va creciendo)
+    this.pistasContainer = this.add.container(L.brainAreaW / 2, 540);
+
     // Botón limpiar
-    const btnY = 595;
+    const btnY = 645;
     const btn = this.add.rectangle(L.brainAreaW / 2, btnY, 160, 32, 0xffffff, 1)
       .setStrokeStyle(2, this.region.color, 1).setInteractive({ useHandCursor: true });
     this.add.text(L.brainAreaW / 2, btnY, 'Limpiar línea', {
@@ -105,15 +117,56 @@ export class BrocaStation extends StationBase {
     this._render();
   }
 
+  iniciarJuego() {
+    // Empezar a contar el tiempo desde acá, no desde la apertura de la consigna.
+    this._tInicioMs = this.time.now;
+  }
+
+  update(time, delta) {
+    super.update(time, delta);
+    if (this._resuelto || this._tInicioMs === null) return;
+    const transcurridoMs = time - this._tInicioMs;
+    // Mostrar siguiente pista progresiva si corresponde
+    while (this._pistasMostradas < this.pistasProgresivas.length) {
+      const p = this.pistasProgresivas[this._pistasMostradas];
+      if (transcurridoMs >= p.tSegundos * 1000) {
+        this._agregarPistaProgresiva(p, this._pistasMostradas + 1);
+        this._pistasMostradas++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  _agregarPistaProgresiva(p, n) {
+    // Cada pista se apila en pistasContainer, una debajo de otra.
+    const y = (n - 1) * 24;
+    const txt = this.add.text(0, y,
+      `Pista ${n}  ·  ${p.texto}`,
+      {
+        fontFamily: 'sans-serif',
+        fontSize: '13px',
+        color: '#1F3864',
+        fontStyle: 'italic',
+        wordWrap: { width: CONFIG.layout.brainAreaW - 80 },
+        align: 'center',
+      }).setOrigin(0.5, 0).setAlpha(0);
+    this.pistasContainer.add(txt);
+    this.tweens.add({
+      targets: txt, alpha: 1, y: { from: y - 8, to: y },
+      duration: 350, ease: 'Cubic.easeOut',
+    });
+    // Pequeño "ding" de feedback
+    if (this.sm) this.sm.playOneShot('note' + Math.min(7, 3 + n), 0.4);
+  }
+
   _render() {
     this.lineaContainer.removeAll(true);
     this.poolContainer.removeAll(true);
 
-    // Línea (centrada)
     const renderRow = (items, container, isLinea) => {
       if (items.length === 0 && isLinea) {
-        const primera = this.palabrasObjetivo[0];
-        const t = this.add.text(0, 0, `(vacía — empezá tocando "${primera}" abajo)`, {
+        const t = this.add.text(0, 0, '(vacía — tocá una palabra abajo)', {
           fontFamily: 'sans-serif', fontSize: '13px', color: '#9b988f', fontStyle: 'italic',
         }).setOrigin(0.5);
         container.add(t);
@@ -124,7 +177,6 @@ export class BrocaStation extends StationBase {
       const lineHeight = 38;
       const maxWidth = CONFIG.layout.brainAreaW - 120;
 
-      // Pre-medir cada palabra
       const tokens = items.map((item) => {
         const txt = this.add.text(0, 0, item.texto, {
           fontFamily: 'sans-serif',
@@ -136,7 +188,6 @@ export class BrocaStation extends StationBase {
         return { item, txt, w };
       });
 
-      // Multi-line layout
       const lines = [[]];
       let curW = 0;
       for (const tk of tokens) {
@@ -166,14 +217,12 @@ export class BrocaStation extends StationBase {
           bg.on('pointerdown', () => {
             this.marcarProgreso();
             if (isLinea) {
-              // Devolver al pool
               const idx = this.linea.indexOf(tk.item);
               if (idx >= 0) {
                 this.linea.splice(idx, 1);
                 this.pool.push(tk.item);
               }
             } else {
-              // Mover a la línea
               const idx = this.pool.indexOf(tk.item);
               if (idx >= 0) {
                 this.pool.splice(idx, 1);
@@ -194,27 +243,28 @@ export class BrocaStation extends StationBase {
   }
 
   _evaluar() {
-    // Comparamos solo por texto (ignoramos el flag esDistractor): cuando la
-    // frase tiene palabras que también figuran como distractores —ej. "puede",
-    // "siente"— da lo mismo qué ficha eligieron, si la frase queda armada
-    // correctamente la validamos.
-    if (this.linea.length !== this.palabrasObjetivo.length) {
+    if (this.linea.length === 0) {
       this.mensaje.setText('');
       return;
     }
-    const armada = this.linea.map((i) => i.texto).join(' ').toLowerCase();
-    const objetivo = this.palabrasObjetivo.join(' ').toLowerCase();
-    if (armada === objetivo) {
+    const armada = normalizar(this.linea.map((i) => i.texto).join(' '));
+    if (this.frasesValidas.includes(armada)) {
       this.mensaje.setText('Frase reconstruida.');
       this.time.delayedCall(700, () => this.resolverEstacion());
-    } else {
-      this.mensaje.setText('Esa no es. Probá otro orden.');
+      return;
+    }
+    // Si la línea tiene un largo razonable y no matchea, contamos un error
+    // (sólo cuenta un error por "intento estable", no por cada click).
+    const longitudMinima = Math.min(...this.frasesValidas.map((f) => f.split(' ').length));
+    if (this.linea.length >= longitudMinima) {
+      this.mensaje.setText('Esa no es. Probá otro orden o variante.');
       if (!this._errorRegistrado) {
-        // Contamos un error por intento fallido distinto, no por cada click
         this._errorRegistrado = true;
         GameState.errores.broca = (GameState.errores.broca || 0) + 1;
         this.time.delayedCall(800, () => { this._errorRegistrado = false; });
       }
+    } else {
+      this.mensaje.setText('');
     }
   }
 }

@@ -64,9 +64,33 @@ export const CONFIG = {
     },
     // Estación 5 — Broca
     broca: {
-      // 6 distractores. Los últimos 3 son sintácticamente plausibles
-      // (forma verbal, sinónimo o variación) — exigen análisis fino.
-      distractores: ['siempre', 'todo', 'fácilmente', 'siente', 'puede', 'aprenda'],
+      // Frases equivalentes válidas. La validación compara ignorando tildes,
+      // mayúsculas y signos de puntuación, así que cualquier variante de
+      // capitalización funciona.
+      frasesValidas: [
+        'No se puede aprender lo que no se siente',
+        'Lo que no se siente no se puede aprender',
+        'Lo que se siente se puede aprender',
+        'Solo se aprende lo que se siente',
+      ],
+      // Pool: incluye todas las palabras necesarias para cualquiera de las
+      // variantes (con duplicados donde haga falta) + distractoras.
+      palabrasPool: [
+        // núcleo común
+        'lo', 'que', 'se', 'se', 'siente', 'aprender', 'aprende', 'puede',
+        // las dos negaciones para la variante original y su reorden
+        'No', 'no',
+        // adverbio para la variante "Solo se aprende lo que se siente"
+        'Solo',
+      ],
+      distractores: ['siempre', 'todo', 'fácilmente', 'aprenda', 'sin', 'cuando'],
+      // Pistas progresivas: aparecen tras N segundos sin resolver. Cada una
+      // se mantiene visible después de aparecer. Editables libremente.
+      pistasProgresivas: [
+        { tSegundos: 60,  texto: 'Una variante válida tiene 9 palabras y empieza con "No".' },
+        { tSegundos: 120, texto: 'Otra variante es afirmativa: empieza con "Lo" o "Solo".' },
+        { tSegundos: 180, texto: 'La frase clave del curso es: "No se puede aprender lo que no se siente".' },
+      ],
     },
   },
 
@@ -79,7 +103,7 @@ export const CONFIG = {
   // --------------------------------------------------------------------------
   // Estación 5 — Área de Broca (compatibilidad)
   // --------------------------------------------------------------------------
-  fraseBroca: 'No se puede aprender lo que no se siente',
+  get fraseBroca() { return this.dificultad.broca.frasesValidas[0]; },
   get distractoresBroca() { return this.dificultad.broca.distractores; },
 
   // --------------------------------------------------------------------------
