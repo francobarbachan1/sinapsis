@@ -165,6 +165,13 @@ export const CONFIG = {
   textoCierreCompleto:
     'Encendieron el cerebro completo. Lo que recorrieron es lo que su propio cerebro hace cada vez que aprende algo nuevo: regula la emoción, percibe, recuerda, organiza, pone en palabras e integra. Cada pulso de estrés que esquivaron y cada error del que volvieron a empezar fortaleció una conexión real. Eso es aprender.',
 
+  // Mensaje de transición al cierre presencial. Aparece como banner
+  // destacado en EndScene cuando el juego se completa (no cuando se acaba
+  // el tiempo). Sirve para puntear el pase al trabajo escrito + conversación
+  // grupal pos-juego.
+  textoTransicionPresencial:
+    'Llegó el momento de bajar a tierra lo que vivieron. Pasen a la consigna escrita y luego conversamos en grupo.',
+
   // --------------------------------------------------------------------------
   // Sistema de pistas (Sección 7 del spec)
   // --------------------------------------------------------------------------

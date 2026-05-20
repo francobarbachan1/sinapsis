@@ -69,6 +69,71 @@ export class EndScene extends Phaser.Scene {
 
     // Botón
     this._dibujarBotonNueva(rightX, H - 42, rightW);
+
+    // Banner de transición al cierre presencial (sólo cuando se completa,
+    // no en fin de tiempo). Es prominente porque marca el pase al trabajo
+    // escrito + conversación grupal pos-juego.
+    if (!this.porTiempo) this._bannerTransicion();
+  }
+
+  _bannerTransicion() {
+    const W = CONFIG.ancho;
+    const H = CONFIG.alto;
+    // Banner centrado sobre la pantalla, con fade-in retardado para que
+    // primero el usuario vea el cerebro encendido y el cierre.
+    const bw = 760, bh = 130;
+    const cx = W / 2;
+    const cy = H / 2;
+
+    // Velo suave que oscurece todo lo demás
+    const veil = this.add.rectangle(0, 0, W, H, 0x0e1e3a, 0).setOrigin(0, 0).setDepth(50)
+      .setInteractive();
+    this.tweens.add({
+      targets: veil, alpha: 0.55, duration: 600, delay: 1800, ease: 'Cubic.easeOut',
+    });
+
+    const cont = this.add.container(cx, cy).setDepth(51).setAlpha(0);
+
+    const g = this.add.graphics();
+    g.fillStyle(0xfbfaf7, 1);
+    g.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 14);
+    g.lineStyle(3, 0xffe27a, 1);
+    g.strokeRoundedRect(-bw / 2, -bh / 2, bw, bh, 14);
+    cont.add(g);
+
+    cont.add(this.add.text(0, -bh / 2 + 24, 'TRANSICIÓN AL CIERRE', {
+      fontFamily: 'sans-serif', fontSize: '12px', fontStyle: 'bold',
+      color: '#854F0B', letterSpacing: 3,
+    }).setOrigin(0.5));
+
+    cont.add(this.add.text(0, 0, CONFIG.textoTransicionPresencial, {
+      fontFamily: 'sans-serif', fontSize: '18px',
+      color: '#1F3864',
+      wordWrap: { width: bw - 60 },
+      align: 'center', lineSpacing: 5,
+    }).setOrigin(0.5));
+
+    const btnY = bh / 2 - 24;
+    const btn = this.add.rectangle(0, btnY, 160, 32, 0x2e5fa3, 1).setStrokeStyle(2, 0x1f3864, 0.5);
+    const btnTxt = this.add.text(0, btnY, 'Entendido', {
+      fontFamily: 'sans-serif', fontSize: '13px', color: '#FFFFFF', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    btn.setInteractive({ useHandCursor: true });
+    cont.add([btn, btnTxt]);
+    btn.on('pointerover', () => btn.setFillStyle(0x1f3864, 1));
+    btn.on('pointerout', () => btn.setFillStyle(0x2e5fa3, 1));
+    btn.on('pointerdown', () => {
+      this.tweens.add({
+        targets: [cont, veil], alpha: 0, duration: 300,
+        onComplete: () => { cont.destroy(); veil.destroy(); },
+      });
+    });
+
+    // Fade-in con un pequeño rebote tras dejar ver brevemente la pantalla.
+    this.tweens.add({
+      targets: cont, alpha: 1, scale: { from: 0.92, to: 1 },
+      duration: 500, delay: 1800, ease: 'Back.easeOut',
+    });
   }
 
   _dibujarFondo(W, H) {
