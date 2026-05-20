@@ -123,7 +123,6 @@ export class MapScene extends Phaser.Scene {
       duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
 
-    this.avatar.stunUntil = 0;
     this.avatar.lastHitTime = -9999;
   }
 
@@ -613,32 +612,25 @@ export class MapScene extends Phaser.Scene {
 
   _onPulsoHit(avatar, pulso) {
     const P = CONFIG.pulsosEstres;
-    const V = CONFIG.vida;
+    const E = CONFIG.estres;
     if (this.time.now - avatar.lastHitTime < P.cooldownColisionMs) return;
     avatar.lastHitTime = this.time.now;
 
-    // Vida: bajar un corazón. Nunca por debajo de 0.
+    // Sumar estrés (cap al máximo).
     GameState.colisionesCortisol = (GameState.colisionesCortisol || 0) + 1;
-    if (GameState.vida > 0) GameState.vida = Math.max(0, GameState.vida - 1);
+    GameState.estres = Math.min(E.max, GameState.estres + E.incrementoPorPulso);
 
-    // Stun se hace más largo a medida que perdemos vida.
-    const corazonesPerdidos = V.max - GameState.vida;
-    const stunMul = 1 + corazonesPerdidos * V.factorStunPorCorazonPerdido;
-    avatar.stunUntil = this.time.now + P.duracionStunMs * stunMul;
-
-    // Feedback visual: tintar avatar + shake
+    // Pequeño "knockback" visual + cámara.
     this.avatar.setTint(0xff8c66);
-    this.time.delayedCall(P.duracionStunMs * stunMul, () => this.avatar && this.avatar.clearTint());
+    this.time.delayedCall(280, () => this.avatar && this.avatar.clearTint());
     this.cameras.main.shake(140, 0.005);
-
-    // Empuje en dirección opuesta
     const dx = avatar.x - pulso.x;
     const dy = avatar.y - pulso.y;
     const len = Math.hypot(dx, dy) || 1;
     avatar.setVelocity((dx / len) * 90, (dy / len) * 90);
 
-    // Aviso al HUD para que actualice la barra de vida
-    this.game.events.emit('sinapsis:vidaCambio', GameState.vida);
+    // Aviso al HUD para actualizar la barra de estrés.
+    this.game.events.emit('sinapsis:estresCambio', GameState.estres);
   }
 
   // --------------------------------------------------------------------------
@@ -702,22 +694,29 @@ export class MapScene extends Phaser.Scene {
     }
 
     const v = CONFIG.velocidadAvatar;
-    const V = CONFIG.vida;
+    const E = CONFIG.estres;
     let dx = 0, dy = 0;
     if (this.cursors.left.isDown || this.keys.A.isDown) dx -= 1;
     if (this.cursors.right.isDown || this.keys.D.isDown) dx += 1;
     if (this.cursors.up.isDown || this.keys.W.isDown) dy -= 1;
     if (this.cursors.down.isDown || this.keys.S.isDown) dy += 1;
 
-    // Velocidad máx se reduce con cada corazón perdido (mínimo 70 %).
-    const corazonesPerdidos = V.max - GameState.vida;
-    const factorVida = Math.max(0.7, 1 - corazonesPerdidos * V.factorVelocidadPorCorazonPerdido);
+    // Decay del estrés: baja gradualmente con el tiempo.
+    if (GameState.estres > 0) {
+      GameState.estres = Math.max(0, GameState.estres - E.decayPorSegundo * (delta / 1000));
+      // Emitimos el cambio al HUD (a un ritmo razonable: cada ~10 frames)
+      if (!this._lastEstresEmit || time - this._lastEstresEmit > 120) {
+        this._lastEstresEmit = time;
+        this.game.events.emit('sinapsis:estresCambio', GameState.estres);
+      }
+    }
 
-    const stunned = time < this.avatar.stunUntil;
-    const accel = stunned ? v.acceleration * 0.3 : v.acceleration;
-    const baseMax = v.maxSpeed * factorVida;
-    const maxV = stunned ? baseMax * CONFIG.pulsosEstres.factorVelocidadStun : baseMax;
+    // Factor velocidad: a 0 % estrés → 1.0; a 100 % → velocidadMinima.
+    const pct = GameState.estres / E.max;
+    const factorEstres = 1 - (1 - E.velocidadMinima) * pct;
+    const maxV = v.maxSpeed * factorEstres;
     this.avatar.setMaxVelocity(maxV, maxV);
+    const accel = v.acceleration * factorEstres;
 
     if (dx !== 0 || dy !== 0) {
       const len = Math.hypot(dx, dy);

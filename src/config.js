@@ -298,15 +298,28 @@ export const CONFIG = {
   },
 
   // --------------------------------------------------------------------------
-  // Vida del jugador
-  // 5 corazones. Cada colisión con cortisol baja uno. NO hay reset (decisión
-  // pedagógica, Sección 16). En cambio, cada corazón perdido suma efectos
-  // acumulativos (stun más largo, velocidad máxima reducida).
+  // Sistema de estrés
+  // Reemplaza al sistema de vidas. La neurona acumula estrés cuando un pulso
+  // de cortisol la toca; el estrés decae solo con el tiempo y baja además al
+  // resolver una estación. Cuanto más alto el estrés, más lenta la neurona.
+  // No hay game-over por estrés alto (decisión pedagógica, Sección 16):
+  // sólo afecta el movimiento.
   // --------------------------------------------------------------------------
-  vida: {
-    max: 5,
-    factorStunPorCorazonPerdido: 0.35,  // +35 % de stun por corazón faltante
-    factorVelocidadPorCorazonPerdido: 0.06, // -6 % de maxSpeed por corazón faltante (mínimo 0.7)
+  estres: {
+    max: 100,                      // tope de la barra (0..100)
+    inicial: 0,                    // arranque
+    incrementoPorPulso: 18,        // cuánto sube cada colisión con cortisol
+    decayPorSegundo: 1.8,          // cuánto baja por segundo sin chocar
+    reduccionPorEstacionPct: 35,   // %  del estrés actual que baja al resolver
+    reduccionPorEstacionFija: 15,  // + cantidad fija adicional al resolver
+    // Curva velocidad: 0 % estrés → factor 1.0; 100 % estrés → velocidadMinima.
+    velocidadMinima: 0.40,         // multiplicador mínimo a maxSpeed
+    // Umbrales para color de la barra (en % de estres)
+    umbralAmarillo: 35,            // 0..35 verde, 35..70 amarillo, 70+ rojo
+    umbralRojo: 70,
+    colorVerde: 0x7fd1a8,
+    colorAmarillo: 0xffd95c,
+    colorRojo: 0xff6480,
   },
 
   // --------------------------------------------------------------------------

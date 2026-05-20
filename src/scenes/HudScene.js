@@ -56,15 +56,15 @@ export class HudScene extends Phaser.Scene {
       color: '#FBFAF7',
     }).setOrigin(0.5, 0);
 
-    // Vida
-    this.add.text(L.hudX + 24, 128, 'VIDA', {
+    // Estrés (barra horizontal con color gradiente verde→amarillo→rojo)
+    this.add.text(L.hudX + 24, 128, 'ESTRÉS', {
       fontFamily: 'sans-serif',
       fontSize: '11px',
       color: '#A8B8D8',
       fontStyle: 'bold',
       letterSpacing: 2,
     });
-    this._dibujarVida(L.hudX + 24, 146);
+    this._dibujarEstres(L.hudX + 24, 146, L.hudW - 48, 18);
 
     // Separador
     this.add.rectangle(L.hudX + 24, 175, L.hudW - 48, 1, 0xfbfaf7, 0.2).setOrigin(0, 0);
@@ -146,21 +146,21 @@ export class HudScene extends Phaser.Scene {
     const onReanudar = () => { this._corre = true; };
     const onRefresh = () => this.refresh();
     const onSala = (id) => this._actualizarMinimapa(id);
-    const onVida = (v) => this._actualizarVida(v);
+    const onEstres = (v) => this._actualizarEstres(v);
 
     this.game.events.off('sinapsis:regionResuelta');
     this.game.events.off('sinapsis:pausarTiempo');
     this.game.events.off('sinapsis:reanudarTiempo');
     this.game.events.off('sinapsis:refrescarHud');
     this.game.events.off('sinapsis:cambioSala');
-    this.game.events.off('sinapsis:vidaCambio');
+    this.game.events.off('sinapsis:estresCambio');
 
     this.game.events.on('sinapsis:regionResuelta', onRegion);
     this.game.events.on('sinapsis:pausarTiempo', onPausa);
     this.game.events.on('sinapsis:reanudarTiempo', onReanudar);
     this.game.events.on('sinapsis:refrescarHud', onRefresh);
     this.game.events.on('sinapsis:cambioSala', onSala);
-    this.game.events.on('sinapsis:vidaCambio', onVida);
+    this.game.events.on('sinapsis:estresCambio', onEstres);
 
     this.events.once('shutdown', () => {
       this.game.events.off('sinapsis:regionResuelta', onRegion);
@@ -168,7 +168,7 @@ export class HudScene extends Phaser.Scene {
       this.game.events.off('sinapsis:reanudarTiempo', onReanudar);
       this.game.events.off('sinapsis:refrescarHud', onRefresh);
       this.game.events.off('sinapsis:cambioSala', onSala);
-      this.game.events.off('sinapsis:vidaCambio', onVida);
+      this.game.events.off('sinapsis:estresCambio', onEstres);
     });
   }
 
@@ -213,63 +213,68 @@ export class HudScene extends Phaser.Scene {
   }
 
   // --------------------------------------------------------------------------
-  // Barra de vida (corazones)
+  // Barra de estrés (horizontal con color gradiente verde→amarillo→rojo)
   // --------------------------------------------------------------------------
-  _dibujarVida(x, y) {
-    const max = GameState.vidaMax || 5;
-    const slotW = 22, gap = 4;
-    this.vidaSlots = [];
-    for (let i = 0; i < max; i++) {
-      const cx = x + i * (slotW + gap) + slotW / 2;
-      const cy = y + slotW / 2;
-      const heart = this.add.graphics();
-      this._pintarCorazon(heart, cx, cy, i < GameState.vida);
-      this.vidaSlots.push({ heart, cx, cy });
+  _dibujarEstres(x, y, w, h) {
+    this._estresPos = { x, y, w, h };
+    // Fondo (track)
+    this._estresTrack = this.add.graphics();
+    this._estresTrack.fillStyle(0xffffff, 0.10);
+    this._estresTrack.fillRoundedRect(x, y, w, h, 4);
+    this._estresTrack.lineStyle(1, 0xffffff, 0.25);
+    this._estresTrack.strokeRoundedRect(x, y, w, h, 4);
+
+    // Fill animado
+    this._estresFill = this.add.graphics();
+
+    // Texto valor (%)
+    this._estresTxt = this.add.text(x + w + 6, y + h / 2, '0%', {
+      fontFamily: 'sans-serif', fontSize: '10px',
+      color: '#a8b8d8', fontStyle: 'bold',
+    }).setOrigin(0, 0.5);
+
+    this._actualizarEstres(GameState.estres || 0);
+  }
+
+  _actualizarEstres(valor) {
+    if (!this._estresPos) return;
+    const E = CONFIG.estres;
+    const { x, y, w, h } = this._estresPos;
+    const pct = Math.max(0, Math.min(1, valor / E.max));
+    const color = this._colorPorEstres(valor);
+
+    this._estresFill.clear();
+    if (pct > 0) {
+      // Gradiente sutil dentro de la barra
+      this._estresFill.fillStyle(color, 1);
+      this._estresFill.fillRoundedRect(x + 1, y + 1, Math.max(2, (w - 2) * pct), h - 2, 3);
+      // Brillo arriba
+      this._estresFill.fillStyle(0xffffff, 0.18);
+      this._estresFill.fillRoundedRect(x + 1, y + 1, Math.max(2, (w - 2) * pct), Math.max(3, (h - 2) / 3), 2);
+    }
+    if (this._estresTxt) {
+      this._estresTxt.setText(Math.round(valor) + '%');
+      const colorHex = '#' + color.toString(16).padStart(6, '0');
+      this._estresTxt.setColor(colorHex);
     }
   }
 
-  _pintarCorazon(g, cx, cy, lleno) {
-    g.clear();
-    const colorRelleno = lleno ? 0xff6480 : 0x3a4a6a;
-    const colorBorde = lleno ? 0xc94360 : 0x5a6a8a;
-    g.lineStyle(2, colorBorde, 1);
-    g.fillStyle(colorRelleno, lleno ? 1 : 0.4);
-    // Corazón aproximado: dos círculos superiores + triángulo inferior
-    const r = 6;
-    g.fillCircle(cx - r * 0.55, cy - r * 0.2, r);
-    g.fillCircle(cx + r * 0.55, cy - r * 0.2, r);
-    g.fillTriangle(
-      cx - r * 1.1, cy + r * 0.05,
-      cx + r * 1.1, cy + r * 0.05,
-      cx, cy + r * 1.35,
-    );
-    g.strokeCircle(cx - r * 0.55, cy - r * 0.2, r);
-    g.strokeCircle(cx + r * 0.55, cy - r * 0.2, r);
-    g.strokeTriangle(
-      cx - r * 1.1, cy + r * 0.05,
-      cx + r * 1.1, cy + r * 0.05,
-      cx, cy + r * 1.35,
-    );
-  }
-
-  _actualizarVida(v) {
-    if (!this.vidaSlots) return;
-    this.vidaSlots.forEach((slot, i) => {
-      this._pintarCorazon(slot.heart, slot.cx, slot.cy, i < v);
-    });
-    // Pequeño "tilt" si se perdió un corazón
-    const idx = v;
-    if (idx >= 0 && idx < this.vidaSlots.length) {
-      const lost = this.vidaSlots[idx];
-      if (lost) {
-        this.tweens.add({
-          targets: lost.heart,
-          scale: { from: 1.6, to: 1 },
-          alpha: { from: 0.4, to: 1 },
-          duration: 350, ease: 'Cubic.easeOut',
-        });
-      }
+  _colorPorEstres(valor) {
+    const E = CONFIG.estres;
+    const pct = (valor / E.max) * 100;
+    // Interpolación verde → amarillo → rojo según umbrales.
+    if (pct <= E.umbralAmarillo) {
+      // verde sólido (puede interpolar de verde claro a verde si querés)
+      return E.colorVerde;
     }
+    if (pct <= E.umbralRojo) {
+      // verde → amarillo
+      const t = (pct - E.umbralAmarillo) / (E.umbralRojo - E.umbralAmarillo);
+      return lerpColor(E.colorVerde, E.colorAmarillo, t);
+    }
+    // amarillo → rojo
+    const t = Math.min(1, (pct - E.umbralRojo) / (100 - E.umbralRojo));
+    return lerpColor(E.colorAmarillo, E.colorRojo, t);
   }
 
   // --------------------------------------------------------------------------
@@ -579,4 +584,15 @@ export class HudScene extends Phaser.Scene {
       this.scene.start('EndScene', { porTiempo: true });
     });
   }
+}
+
+// Interpolación lineal entre dos colores 0xRRGGBB. Usado para el gradiente
+// verde → amarillo → rojo de la barra de estrés.
+function lerpColor(a, b, t) {
+  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return (r << 16) | (g << 8) | bl;
 }

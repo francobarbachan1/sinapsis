@@ -14,11 +14,10 @@ export const GameState = {
   juegoBloqueadoPorTiempo: false,
   currentRoomId: CONFIG.mapa.startRoomId, // sala actual del avatar
   spawnFromDoor: null,
-  // Vida: corazones que se pierden al chocar con cortisol. Nunca llega a
-  // "perder y empezar de 0" (decisión pedagógica, Sección 16 del spec); se
-  // usa para slowdown acumulativo y para la stat final.
-  vida: 5,
-  vidaMax: 5,
+  // Nivel de estrés (0..100). Sube con cortisol, baja con tiempo y al
+  // resolver estaciones. Afecta velocidad de la neurona. No hay game over
+  // (decisión pedagógica, Sección 16).
+  estres: 0,
   // Contador de errores por estación, mostrado en EndScene.
   errores: {
     amigdala: 0,
@@ -38,7 +37,7 @@ export const GameState = {
     this.juegoBloqueadoPorTiempo = false;
     this.currentRoomId = CONFIG.mapa.startRoomId;
     this.spawnFromDoor = null;
-    this.vida = this.vidaMax;
+    this.estres = CONFIG.estres.inicial;
     this.errores = { amigdala: 0, occipital: 0, hipocampo: 0, parietal: 0, broca: 0, prefrontal: 0 };
     this.colisionesCortisol = 0;
   },

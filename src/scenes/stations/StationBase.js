@@ -189,6 +189,13 @@ export class StationBase extends Phaser.Scene {
       this.sm.playResolution();
     }
 
+    // Bajar el estrés: parte porcentual + parte fija. Resolver una estación
+    // alivia notablemente la carga.
+    const E = CONFIG.estres;
+    const reduccion = GameState.estres * (E.reduccionPorEstacionPct / 100) + E.reduccionPorEstacionFija;
+    GameState.estres = Math.max(0, GameState.estres - reduccion);
+    this.game.events.emit('sinapsis:estresCambio', GameState.estres);
+
     this._animacionResolucion(() => {
       GameState.marcarResuelta(this.regionId);
       this.cameras.main.fadeOut(280, 251, 250, 247);

@@ -99,11 +99,12 @@ export class EndScene extends Phaser.Scene {
     const tSec = tiempoUsado % 60;
     const tiempoFmt = `${tMin}:${String(tSec).padStart(2, '0')}`;
 
+    const estresFinal = Math.round(GameState.estres || 0);
     const stats = [
       { lbl: 'Tiempo',    val: tiempoFmt,                                color: '#88a4dd' },
       { lbl: 'Regiones',  val: `${GameState.regionesResueltas.length}/6`, color: '#ffe27a' },
-      { lbl: 'Vida',      val: `${GameState.vida}/${GameState.vidaMax}`,
-        color: GameState.vida >= 4 ? '#7fd1a8' : (GameState.vida >= 2 ? '#ffd9a8' : '#ff8a8a') },
+      { lbl: 'Estrés',    val: `${estresFinal}%`,
+        color: estresFinal <= 35 ? '#7fd1a8' : (estresFinal <= 70 ? '#ffd95c' : '#ff6480') },
       { lbl: 'Pulsos',    val: `${GameState.colisionesCortisol || 0}`,    color: '#ff8a5c' },
     ];
     stats.forEach((s, i) => {
