@@ -416,7 +416,13 @@ export const CONFIG = {
   // Reemplazar estos archivos NO requiere tocar código.
   // --------------------------------------------------------------------------
   rutasAudio: {
-    ambient: 'assets/audio/ambient.wav',
+    // ⭐ Reemplazados por audio real del integrante de Música:
+    ambient: 'assets/audio/ambient.mp3',
+    emotionCalma: 'assets/audio/emotion-calma.mp3',
+    emotionTension: 'assets/audio/emotion-tension.mp3',
+    emotionAlegria: 'assets/audio/emotion-alegria.mp3',
+    emotionTristeza: 'assets/audio/emotion-tristeza.mp3',
+    // Placeholders sintéticos (WAV) generados por tools/generate-audio.ps1:
     tension: 'assets/audio/tension.wav',
     resolution: 'assets/audio/resolution.wav',
     stingLogro: 'assets/audio/sting-logro.wav',
@@ -433,11 +439,6 @@ export const CONFIG = {
     rhythm1: 'assets/audio/rhythm-1.wav',
     rhythm2: 'assets/audio/rhythm-2.wav',
     rhythm3: 'assets/audio/rhythm-3.wav',
-    // Emociones — Estación 1 (Amígdala)
-    emotionCalma: 'assets/audio/emotion-calma.wav',
-    emotionTension: 'assets/audio/emotion-tension.wav',
-    emotionAlegria: 'assets/audio/emotion-alegria.wav',
-    emotionTristeza: 'assets/audio/emotion-tristeza.wav',
   },
 
   // --------------------------------------------------------------------------

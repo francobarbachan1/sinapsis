@@ -120,25 +120,33 @@ Todo lo que un equipo puede querer ajustar sin tocar código vive en `src/config
 
 ---
 
-## Audio placeholder — archivos a reemplazar
+## Audio — qué hay en `assets/audio/`
 
-Los 11 archivos en `assets/audio/` son **placeholders sintéticos** (tonos generados por código). Reemplazarlos no requiere tocar ningún `.js`: alcanza con poner archivos del mismo nombre en el mismo directorio.
+Algunos archivos ya son **audio real** del integrante de Música; otros siguen como placeholders sintéticos generados por `tools/generate-audio.ps1`. Reemplazar cualquier archivo no requiere tocar `.js` siempre y cuando se mantenga el nombre y la extensión (o se actualice `config.rutasAudio`).
+
+### Reales (MP3)
+
+| Archivo | Uso | Estado |
+|---|---|---|
+| `ambient.mp3` | Música de fondo, bucle continuo | ✅ real |
+| `emotion-calma.mp3` | Estación 1 (Amígdala) — fragmento "calma" | ✅ real |
+| `emotion-tension.mp3` | Estación 1 — "tensión" | ✅ real |
+| `emotion-alegria.mp3` | Estación 1 — "alegría" | ✅ real |
+| `emotion-tristeza.mp3` | Estación 1 — "tristeza" | ✅ real |
+
+### Placeholders sintéticos (WAV — reemplazar cuando esté la música)
 
 | Archivo | Uso | Detalle |
 |---|---|---|
-| `ambient.wav` | Capa base, bucle continuo | Tono calmo. |
 | `tension.wav` | Capa de tensión, bucle | Se sube cuando el jugador lleva ~30 s sin progreso. |
 | `resolution.wav` | Al resolver una estación | Fragmento breve. |
 | `sting-logro.wav` | Al iluminar una región | Sonido corto. |
-| `rhythm-1.wav` | Estación 3 (Hipocampo) ronda 1 | **v2**: 5 golpes en `[0, 350, 700, 1250, 1600]` ms (irregular). |
-| `rhythm-2.wav` | Estación 3 ronda 2 | **v2**: 7 golpes en `[0, 300, 750, 1200, 1500, 1900, 2400]` ms. |
-| `rhythm-3.wav` | Estación 3 ronda 3 | **v2**: 9 golpes en `[0, 350, 650, 1100, 1450, 1800, 2300, 2700, 3200]` ms. |
-| `emotion-calma.wav` | Estación 1 (Amígdala) | ~4 s, carácter calmo. |
-| `emotion-tension.wav` | Estación 1 | ~4 s, carácter tenso. |
-| `emotion-alegria.wav` | Estación 1 | ~4 s, carácter alegre. |
-| `emotion-tristeza.wav` | Estación 1 | ~4 s, carácter triste. |
+| `note-1.wav` ... `note-7.wav` | Estación 3 (Hipocampo) | Escala C mayor (Do, Re, Mi, Fa, Sol, La, Si) — 7 notas. |
+| `rhythm-1.wav` | (legacy, no se usa en gameplay actual) | 5 golpes en `[0, 350, 700, 1250, 1600]` ms (irregular). |
+| `rhythm-2.wav` | (legacy) | 7 golpes en `[0, 300, 750, 1200, 1500, 1900, 2400]` ms. |
+| `rhythm-3.wav` | (legacy) | 9 golpes en `[0, 350, 650, 1100, 1450, 1800, 2300, 2700, 3200]` ms. |
 
-**Sobre los ritmos de la Estación 3 (Sección 16 del spec):** son simples patrones rítmicos. **No los etiqueten como "ondas alfa", "frecuencias del aprendizaje" ni nada similar.** Si el integrante de Música quiere alterar los tiempos de los golpes, además de cambiar el archivo debe actualizar `dificultad.hipocampo.patrones` en `config.js` para que la validación de timing siga calzando.
+**Sobre la Estación 3 (Sección 16 del spec):** las notas musicales son simples notas, no se presentan como "ondas alfa", "frecuencias del aprendizaje" ni nada similar. Si el integrante de Música quiere reemplazar las 7 notas, basta con sustituir los archivos `note-1.wav` ... `note-7.wav` (o cambiar la extensión a `.mp3` y actualizar `config.rutasAudio`).
 
 Para regenerar todos los WAV placeholder desde cero:
 
