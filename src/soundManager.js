@@ -164,12 +164,30 @@ class SoundManager {
 
   // Como playOneShot pero si ya hay un sonido del mismo "grupo" sonando, lo
   // detiene primero. Pensado para los fragmentos de Amígdala: no se superponen.
+  // También recorre game.sound.sounds y mata cualquier sonido residual de
+  // la misma key — esto cubre casos donde se reprodujo via playOneShot
+  // antes de que existiera playExclusive, o donde el tracking falló.
   playExclusive(grupo, key, volume) {
+    // 1) Parar el "previous" tracked si existe.
     const prev = this._exclusivePlaying[grupo];
     if (prev) {
-      try { prev.stop(); prev.destroy(); } catch (e) {}
+      this._silenciarYDestruir(prev);
       this._exclusivePlaying[grupo] = null;
     }
+    // 2) Defensa extra: por si el tracking falló o hay sonidos huérfanos de
+    //    cualquier emoción del mismo grupo, los matamos también.
+    if (grupo === 'emocion') {
+      const claves = ['emotionCalma', 'emotionTension', 'emotionAlegria', 'emotionTristeza'];
+      try {
+        for (const k of claves) {
+          const restantes = this.scene.sound.sounds.filter(
+            (sd) => sd && sd.key === k && sd.isPlaying,
+          );
+          for (const sd of restantes) this._silenciarYDestruir(sd);
+        }
+      } catch (e) {}
+    }
+    // 3) Tocar el nuevo
     const s = this.playOneShot(key, volume);
     if (s) {
       this._exclusivePlaying[grupo] = s;
@@ -180,12 +198,30 @@ class SoundManager {
     return s;
   }
 
-  // Forzar detener todos los sonidos exclusivos de un grupo.
   stopExclusive(grupo) {
     const prev = this._exclusivePlaying[grupo];
     if (prev) {
-      try { prev.stop(); prev.destroy(); } catch (e) {}
+      this._silenciarYDestruir(prev);
       this._exclusivePlaying[grupo] = null;
     }
+    // Defensa adicional: matar cualquier sonido emocional huérfano.
+    if (grupo === 'emocion') {
+      const claves = ['emotionCalma', 'emotionTension', 'emotionAlegria', 'emotionTristeza'];
+      try {
+        for (const k of claves) {
+          const restantes = this.scene.sound.sounds.filter(
+            (sd) => sd && sd.key === k && sd.isPlaying,
+          );
+          for (const sd of restantes) this._silenciarYDestruir(sd);
+        }
+      } catch (e) {}
+    }
+  }
+
+  _silenciarYDestruir(s) {
+    if (!s) return;
+    try { if (typeof s.setVolume === 'function') s.setVolume(0); } catch (e) {}
+    try { if (typeof s.stop === 'function') s.stop(); } catch (e) {}
+    try { if (typeof s.destroy === 'function') s.destroy(); } catch (e) {}
   }
 }

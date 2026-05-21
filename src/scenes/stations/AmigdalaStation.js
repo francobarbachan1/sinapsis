@@ -105,7 +105,20 @@ export class AmigdalaStation extends StationBase {
 
     const hit = this.add.zone(cx, cy, w, h).setOrigin(0.5).setInteractive({ useHandCursor: true });
     hit.on('pointerdown', () => {
-      // playExclusive: si ya hay un fragmento emocional sonando, lo detiene.
+      // Defensa total: matar cualquier sound de emoción que esté sonando
+      // ANTES de tocar el nuevo. No confiamos sólo en playExclusive — acá
+      // recorremos directamente game.sound.sounds.
+      try {
+        const claves = ['emotionCalma', 'emotionTension', 'emotionAlegria', 'emotionTristeza'];
+        for (const sd of this.sound.sounds.slice()) {
+          if (sd && claves.includes(sd.key)) {
+            try { if (sd.setVolume) sd.setVolume(0); } catch (e) {}
+            try { sd.stop(); } catch (e) {}
+            try { sd.destroy(); } catch (e) {}
+          }
+        }
+      } catch (e) {}
+      // Tocar el nuevo (playExclusive además limpia el tracking interno).
       if (this.sm) this.sm.playExclusive('emocion', f.audioKey, CONFIG.audio.volumenEmocion);
       this.tweens.add({ targets: play, scale: { from: 1, to: 1.3 }, duration: 150, yoyo: true });
       this.marcarProgreso();
