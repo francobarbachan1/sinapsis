@@ -105,7 +105,8 @@ export class AmigdalaStation extends StationBase {
 
     const hit = this.add.zone(cx, cy, w, h).setOrigin(0.5).setInteractive({ useHandCursor: true });
     hit.on('pointerdown', () => {
-      if (this.sm) this.sm.playOneShot(f.audioKey, CONFIG.audio.volumenEmocion);
+      // playExclusive: si ya hay un fragmento emocional sonando, lo detiene.
+      if (this.sm) this.sm.playExclusive('emocion', f.audioKey, CONFIG.audio.volumenEmocion);
       this.tweens.add({ targets: play, scale: { from: 1, to: 1.3 }, duration: 150, yoyo: true });
       this.marcarProgreso();
     });

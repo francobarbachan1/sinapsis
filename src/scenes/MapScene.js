@@ -77,17 +77,21 @@ export class MapScene extends Phaser.Scene {
     // Eventos
     this.events.off('wake');
     this.events.on('wake', () => {
-      // Defensivo: limpiar cualquier flag de transición que haya quedado pegado.
       this._transitioning = false;
       this.cameras.main.resetFX();
-      // Al volver de una estación: recargar la sala actual (regiones iluminadas).
-      this._cargarSala(GameState.currentRoomId, null /* no respawn */);
+      this._cargarSala(GameState.currentRoomId, null);
       this.scene.bringToTop('HudScene');
       this.cameras.main.fadeIn(300, 251, 250, 247);
+      // Re-attachar el SoundManager a esta escena (el station lo había
+      // tomado) y restaurar ambient. Sin re-attach, los tweens del fade se
+      // crean en la station ya cerrada y se descartan.
+      this.sm = getSoundManager(this);
+      this.sm.restaurarAmbient(700);
     });
 
-    // Fade-in inicial
+    // Fade-in inicial + ambient al volumen normal.
     this.cameras.main.fadeIn(350, 251, 250, 247);
+    if (this.sm) this.sm.restaurarAmbient(800);
 
     // Anti re-disparo de estación si reentras a la misma celda
     this._stationCooldownUntil = 0;

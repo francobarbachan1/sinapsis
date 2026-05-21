@@ -43,6 +43,9 @@ export class StationBase extends Phaser.Scene {
 
     this.sm = getSoundManager(this);
     this.sm.resetTensionTimer();
+    // Bajar la música de fondo durante la prueba — los fragmentos/notas/
+    // mecánicas auditivas se escuchan en silencio.
+    this.sm.silenciarAmbient(600);
     this._inicioMs = this.time.now;
     this._huboProgreso = false;
 
@@ -198,6 +201,9 @@ export class StationBase extends Phaser.Scene {
 
     this._animacionResolucion(() => {
       GameState.marcarResuelta(this.regionId);
+      // Cerrar cualquier sonido exclusivo (ej. fragmento Amígdala) y volver
+      // a subir el ambient para el mapa.
+      if (this.sm) { this.sm.stopExclusive('emocion'); this.sm.restaurarAmbient(700); }
       this.cameras.main.fadeOut(280, 251, 250, 247);
       this.cameras.main.once('camerafadeoutcomplete', () => {
         this.scene.stop();
@@ -265,6 +271,8 @@ export class StationBase extends Phaser.Scene {
     hit.on('pointerout', () => bg.setFillStyle(0xffffff, 0.3));
     hit.on('pointerdown', () => {
       if (this._resuelto) return;
+      // Idem resolución: parar audio exclusivo + restaurar ambient.
+      if (this.sm) { this.sm.stopExclusive('emocion'); this.sm.restaurarAmbient(600); }
       this.cameras.main.fadeOut(220, 251, 250, 247);
       this.cameras.main.once('camerafadeoutcomplete', () => {
         this.scene.stop();

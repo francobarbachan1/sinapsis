@@ -2,15 +2,19 @@
 // Sinapsis — Gestor de audio dinámico (Sección 8 del spec)
 // ----------------------------------------------------------------------------
 // Tres capas + sting:
-//   - ambient: bucle base, siempre sonando durante el desarrollo.
+//   - ambient: bucle base, siempre sonando en el mapa. Se desvanece al entrar
+//     a una estación (para hacer la prueba en silencio) y vuelve al salir.
 //   - tension: se sube cuando hay >umbral segundos sin progreso, se baja al
-//     resolver una estación o salir de la estación.
+//     resolver una estación o salir.
 //   - resolution: fragmento corto al resolver una estación.
-//   - sting:    sonido corto al iluminar una región.
+//   - sting: sonido corto al iluminar una región.
+//
+// Además ofrece `playExclusive(grupo, key, vol)`: detiene cualquier sonido
+// anterior del mismo "grupo" (ej. fragmentos de Amígdala) antes de tocar el
+// nuevo, para evitar superposiciones.
 //
 // El SoundManager se monta sobre la game.registry para sobrevivir cambios de
-// escena. Reemplazar los .wav placeholder en assets/audio/ no requiere tocar
-// nada de este archivo.
+// escena.
 // ============================================================================
 
 import { CONFIG } from './config.js';
@@ -31,14 +35,13 @@ class SoundManager {
   constructor(game) {
     this.game = game;
     this.sounds = {};
-    this.tensionRaising = false;
-    this.tensionTimer = 0; // ms acumulados sin progreso
-    this._lastUpdate = 0;
+    this.tensionTimer = 0;
+    this._ambientFadeTween = null;
+    this._exclusivePlaying = {};   // { grupo: soundInstance }
+    this._ambientTargetVol = CONFIG.audio.volumenAmbient;
   }
 
   attachScene(scene) {
-    // Cada escena nueva: re-creamos los handles para no perder referencias al
-    // sound manager subyacente entre transiciones.
     this.scene = scene;
     const sound = scene.sound;
 
@@ -47,26 +50,41 @@ class SoundManager {
       try {
         this.sounds[key] = sound.add(key, opts);
       } catch (e) {
-        // Si el asset no cargó, dejamos un stub no-op
         this.sounds[key] = { play: () => {}, stop: () => {}, setVolume: () => {}, isPlaying: false };
       }
     };
 
-    ensure('ambient', { loop: true, volume: CONFIG.audio.volumenAmbient });
+    ensure('ambient', { loop: true, volume: this._ambientTargetVol });
     ensure('tension', { loop: true, volume: 0 });
     ensure('resolution', { loop: false, volume: CONFIG.audio.volumenResolution });
     ensure('stingLogro', { loop: false, volume: CONFIG.audio.volumenSting });
 
-    if (!this.sounds.ambient.isPlaying) {
-      try { this.sounds.ambient.play(); } catch (e) {}
-    }
+    // Aseguramos que ambient esté en loop infinito y sonando.
+    this._asegurarAmbient();
     if (!this.sounds.tension.isPlaying) {
       try { this.sounds.tension.play(); } catch (e) {}
     }
   }
 
-  // Llamar desde update() de la escena.
+  // Watchdog: si por cualquier motivo ambient se detuvo, lo reiniciamos.
+  // Phaser con `loop: true` debería reproducir indefinidamente, pero en algunos
+  // edge cases (cambio de contexto, end de buffer mp3) puede quedar detenido.
+  // Esta función se llama desde tick() en cada update.
+  _asegurarAmbient() {
+    const s = this.sounds.ambient;
+    if (!s || !s.manager || s.manager.destroyed) return;
+    if (typeof s.setLoop === 'function') s.setLoop(true);
+    else if ('loop' in s) s.loop = true;
+    if (!s.isPlaying) {
+      try { s.play(); } catch (e) {}
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Tick general (llamado desde update de cada escena)
+  // --------------------------------------------------------------------------
   tick(deltaMs, hayProgreso) {
+    this._asegurarAmbient();
     if (hayProgreso) {
       this.tensionTimer = 0;
       this._fadeTension(0, 0.15);
@@ -93,6 +111,37 @@ class SoundManager {
     this._fadeTension(0, 1);
   }
 
+  // --------------------------------------------------------------------------
+  // Fade del ambient — usado al entrar/salir de estaciones
+  // --------------------------------------------------------------------------
+  fadeAmbient(targetVol, durationMs = 500) {
+    const s = this.sounds.ambient;
+    if (!s || typeof s.volume !== 'number') return;
+    // Cancelar tween anterior
+    if (this._ambientFadeTween) { this._ambientFadeTween.stop(); this._ambientFadeTween = null; }
+    if (!this.scene || !this.scene.tweens) {
+      s.setVolume(targetVol);
+      return;
+    }
+    this._ambientFadeTween = this.scene.tweens.add({
+      targets: s, volume: targetVol, duration: durationMs,
+      onComplete: () => { this._ambientFadeTween = null; },
+    });
+  }
+
+  silenciarAmbient(durationMs = 500) {
+    this.fadeAmbient(0, durationMs);
+  }
+
+  restaurarAmbient(durationMs = 600) {
+    this.fadeAmbient(this._ambientTargetVol, durationMs);
+    // Si quedó detenido por cualquier motivo, reiniciar.
+    this._asegurarAmbient();
+  }
+
+  // --------------------------------------------------------------------------
+  // Stings + one-shots
+  // --------------------------------------------------------------------------
   playResolution() {
     try { this.sounds.resolution.play(); } catch (e) {}
   }
@@ -101,7 +150,7 @@ class SoundManager {
     try { this.sounds.stingLogro.play(); } catch (e) {}
   }
 
-  // Reproducir un sample por key arbitrario (rhythm-1, emotion-calma, etc.)
+  // Reproducir un sample por key arbitrario.
   playOneShot(key, volume) {
     try {
       const s = this.scene.sound.add(key, { loop: false, volume: volume ?? 0.7 });
@@ -110,6 +159,33 @@ class SoundManager {
       return s;
     } catch (e) {
       return null;
+    }
+  }
+
+  // Como playOneShot pero si ya hay un sonido del mismo "grupo" sonando, lo
+  // detiene primero. Pensado para los fragmentos de Amígdala: no se superponen.
+  playExclusive(grupo, key, volume) {
+    const prev = this._exclusivePlaying[grupo];
+    if (prev) {
+      try { prev.stop(); prev.destroy(); } catch (e) {}
+      this._exclusivePlaying[grupo] = null;
+    }
+    const s = this.playOneShot(key, volume);
+    if (s) {
+      this._exclusivePlaying[grupo] = s;
+      s.once('complete', () => {
+        if (this._exclusivePlaying[grupo] === s) this._exclusivePlaying[grupo] = null;
+      });
+    }
+    return s;
+  }
+
+  // Forzar detener todos los sonidos exclusivos de un grupo.
+  stopExclusive(grupo) {
+    const prev = this._exclusivePlaying[grupo];
+    if (prev) {
+      try { prev.stop(); prev.destroy(); } catch (e) {}
+      this._exclusivePlaying[grupo] = null;
     }
   }
 }
