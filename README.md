@@ -201,3 +201,16 @@ Estas reglas son del marco académico del proyecto. **No romperlas.**
 - [x] Assets de audio marcados como placeholder.
 - [x] El proyecto se despliega en GitHub Pages sin pasos de build.
 - [x] README explica cómo probarlo, desplegarlo y qué placeholders reemplazar.
+
+## Licencia y uso
+
+Este es un recurso educativo abierto, libre para uso de cualquier docente 
+o institución.
+
+- **Código fuente:** MIT License (ver LICENSE)
+- **Contenidos pedagógicos:** Creative Commons BY-SA 4.0 (ver LICENSE-content.md)
+
+Autoría: grupo Sinapsis — Franco Barbachan, Pablo Barrios, Pablo Fuentes, 
+Vicente Debrun, Silvia Locaputo. CERP del Sur, Formación Docente, 2026.
+
+Si lo usás en tu clase, nos encantaría saberlo: francobarbachan1@gmail.com
